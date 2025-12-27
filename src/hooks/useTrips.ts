@@ -267,6 +267,61 @@ export function useTrips() {
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
   };
 
+  // Update a proposed or confirmed trip
+  const updateProposal = async (
+    tripId: string,
+    data: TripProposalFormData,
+    vehicle: Vehicle,
+    route: Route | undefined,
+    estimatedDistanceKm: number,
+    isRoundTrip: boolean
+  ): Promise<Trip> => {
+    const trip = trips.find((t) => t.id === tripId);
+    if (!trip) throw new Error('Trip not found');
+    if (trip.status !== 'proposed' && trip.status !== 'confirmed') {
+      throw new Error('Can only edit proposed or confirmed trips');
+    }
+
+    const estimatedFare = calculateFare(
+      vehicle.ratePerKm,
+      Math.max(estimatedDistanceKm, vehicle.minKmPerDay),
+      parseFloat(data.numberOfDays),
+      parseFloat(data.bataPerDay),
+      parseFloat(data.estimatedTolls)
+    );
+
+    const updated: Trip = {
+      ...trip,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone || '',
+      vehicleId: vehicle.id,
+      vehicleSnapshot: {
+        id: vehicle.id,
+        name: vehicle.name,
+        carSize: vehicle.carSize,
+        fuelType: vehicle.fuelType,
+        acOption: vehicle.acOption,
+        ratePerKm: vehicle.ratePerKm,
+        minKmPerDay: vehicle.minKmPerDay,
+      },
+      proposedStartDate: data.proposedStartDate,
+      numberOfDays: parseInt(data.numberOfDays),
+      bataPerDay: parseFloat(data.bataPerDay),
+      estimatedTolls: parseFloat(data.estimatedTolls),
+      estimatedDistanceKm,
+      estimatedFareBreakdown: estimatedFare,
+      startLocationName: route?.waypoints[0]?.place.shortName || '',
+      endLocationName: route?.waypoints[route.waypoints.length - 1]?.place.shortName || '',
+      isRoundTrip,
+      notes: data.notes || '',
+      updatedAt: new Date().toISOString(),
+    };
+
+    await storage.saveTrip(updated);
+    setTrips((prev) => prev.map((t) => (t.id === tripId ? updated : t)));
+    return updated;
+  };
+
   // Get a single trip
   const getTrip = (tripId: string): Trip | undefined => {
     return trips.find((t) => t.id === tripId);
@@ -281,6 +336,7 @@ export function useTrips() {
     activeTrips,
     completedTrips,
     createProposal,
+    updateProposal,
     confirmTrip,
     startTrip,
     addTollEntry,

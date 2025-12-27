@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useTrips, useVehicles } from '../../../src/hooks';
 import { TripStatusBadge } from '../../../src/components/trips';
 import { FareBreakdown } from '../../../src/components/fare';
-import { Button, Card, Input, LoadingSpinner } from '../../../src/components/ui';
+import { Button, Card, Input, LoadingSpinner, DatePicker } from '../../../src/components/ui';
 import { formatCurrency, formatDistance } from '../../../src/utils/formatters';
 
 type ModalType = 'confirm' | 'start' | 'toll' | 'complete' | 'advance' | null;
@@ -29,8 +29,8 @@ export default function TripDetailScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal form states
-  const [confirmedStartTime, setConfirmedStartTime] = useState('');
-  const [confirmedEndTime, setConfirmedEndTime] = useState('');
+  const [confirmedStartTime, setConfirmedStartTime] = useState(new Date());
+  const [confirmedEndTime, setConfirmedEndTime] = useState(new Date());
   const [odometerStart, setOdometerStart] = useState('');
   const [odometerEnd, setOdometerEnd] = useState('');
   const [tollAmount, setTollAmount] = useState('');
@@ -90,9 +90,9 @@ export default function TripDetailScreen() {
     setIsSubmitting(true);
     try {
       await confirmTrip(id, {
-        confirmedStartTime: new Date(confirmedStartTime).toISOString(),
+        confirmedStartTime: confirmedStartTime.toISOString(),
         confirmedEndTime: confirmedEndTime
-          ? new Date(confirmedEndTime).toISOString()
+          ? confirmedEndTime.toISOString()
           : undefined,
       });
       setModalType(null);
@@ -433,6 +433,24 @@ export default function TripDetailScreen() {
         {trip.status === 'proposed' && (
           <>
             <Button
+              title="Edit Trip"
+              onPress={() => router.push({
+                pathname: '/(tabs)/estimate/route',
+                params: {
+                  tripId: trip.id,
+                  customerName: trip.customerName,
+                  customerPhone: trip.customerPhone,
+                  proposedStartDate: trip.proposedStartDate.split('T')[0],
+                  vehicleId: trip.vehicleId,
+                  numberOfDays: trip.numberOfDays.toString(),
+                  bataPerDay: trip.bataPerDay.toString(),
+                  estimatedTolls: trip.estimatedTolls.toString(),
+                  notes: trip.notes,
+                },
+              })}
+              style={styles.actionButton}
+            />
+            <Button
               title="Confirm Trip"
               onPress={() => setModalType('confirm')}
               style={styles.actionButton}
@@ -454,6 +472,24 @@ export default function TripDetailScreen() {
 
         {trip.status === 'confirmed' && (
           <>
+            <Button
+              title="Edit Trip"
+              onPress={() => router.push({
+                pathname: '/(tabs)/estimate/route',
+                params: {
+                  tripId: trip.id,
+                  customerName: trip.customerName,
+                  customerPhone: trip.customerPhone,
+                  proposedStartDate: trip.proposedStartDate.split('T')[0],
+                  vehicleId: trip.vehicleId,
+                  numberOfDays: trip.numberOfDays.toString(),
+                  bataPerDay: trip.bataPerDay.toString(),
+                  estimatedTolls: trip.estimatedTolls.toString(),
+                  notes: trip.notes,
+                },
+              })}
+              style={styles.actionButton}
+            />
             <Button
               title="Start Trip"
               onPress={() => setModalType('start')}
@@ -517,17 +553,17 @@ export default function TripDetailScreen() {
       <Modal visible={modalType === 'confirm'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <Card title="Confirm Trip" style={styles.modalCard}>
-            <Input
+            <DatePicker
               label="Confirmed Start Date & Time"
               value={confirmedStartTime}
-              onChangeText={setConfirmedStartTime}
-              placeholder="YYYY-MM-DD HH:MM"
+              onChange={setConfirmedStartTime}
+              mode="datetime"
             />
-            <Input
+            <DatePicker
               label="Confirmed End Date & Time (optional)"
               value={confirmedEndTime}
-              onChangeText={setConfirmedEndTime}
-              placeholder="YYYY-MM-DD HH:MM"
+              onChange={setConfirmedEndTime}
+              mode="datetime"
             />
             <View style={styles.modalActions}>
               <Button

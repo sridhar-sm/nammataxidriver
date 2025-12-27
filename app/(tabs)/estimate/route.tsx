@@ -30,10 +30,11 @@ export default function EstimateRouteScreen() {
     bataPerDay: string;
     estimatedTolls: string;
     notes: string;
+    tripId?: string;
   }>();
   const router = useRouter();
   const { getVehicle } = useVehicles();
-  const { createProposal } = useTrips();
+  const { createProposal, updateProposal } = useTrips();
   const { route, isCalculating, calculateRoute, error } = useRouteCalculation();
 
   const [startPlace, setStartPlace] = useState<Place | null>(null);
@@ -176,27 +177,46 @@ export default function EstimateRouteScreen() {
 
     setIsSaving(true);
     try {
-      const trip = await createProposal(
-        {
-          customerName: params.customerName,
-          customerPhone: params.customerPhone,
-          vehicleId: params.vehicleId,
-          proposedStartDate: params.proposedStartDate,
-          numberOfDays: params.numberOfDays,
-          bataPerDay: params.bataPerDay,
-          estimatedTolls: params.estimatedTolls,
-          notes: params.notes,
-        },
-        vehicle,
-        route,
-        route.totalDistanceKm,
-        isRoundTrip
-      );
+      const isEditing = !!params.tripId;
+      const trip = isEditing
+        ? await updateProposal(
+            params.tripId!,
+            {
+              customerName: params.customerName,
+              customerPhone: params.customerPhone,
+              vehicleId: params.vehicleId,
+              proposedStartDate: params.proposedStartDate,
+              numberOfDays: params.numberOfDays,
+              bataPerDay: params.bataPerDay,
+              estimatedTolls: params.estimatedTolls,
+              notes: params.notes,
+            },
+            vehicle,
+            route,
+            route.totalDistanceKm,
+            isRoundTrip
+          )
+        : await createProposal(
+            {
+              customerName: params.customerName,
+              customerPhone: params.customerPhone,
+              vehicleId: params.vehicleId,
+              proposedStartDate: params.proposedStartDate,
+              numberOfDays: params.numberOfDays,
+              bataPerDay: params.bataPerDay,
+              estimatedTolls: params.estimatedTolls,
+              notes: params.notes,
+            },
+            vehicle,
+            route,
+            route.totalDistanceKm,
+            isRoundTrip
+          );
 
       // Navigate to trip details immediately after saving
       router.replace(`/(tabs)/trips/${trip.id}`);
     } catch (err) {
-      Alert.alert('Error', 'Failed to save trip');
+      Alert.alert('Error', isEditing ? 'Failed to update trip' : 'Failed to save trip');
     } finally {
       setIsSaving(false);
     }

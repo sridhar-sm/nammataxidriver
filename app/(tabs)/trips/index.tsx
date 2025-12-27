@@ -60,6 +60,7 @@ export default function TripsListScreen() {
                 onPress: async () => {
                   try {
                     await cancelTrip(trip.id);
+                    refreshTrips();
                   } catch (err) {
                     Alert.alert('Error', 'Failed to cancel trip');
                   }
@@ -87,6 +88,7 @@ export default function TripsListScreen() {
                 onPress: async () => {
                   try {
                     await deleteTrip(trip.id);
+                    refreshTrips();
                   } catch (err) {
                     Alert.alert('Error', 'Failed to delete trip');
                   }
