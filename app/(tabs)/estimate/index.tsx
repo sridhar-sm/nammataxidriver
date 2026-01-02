@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Text } from 'react-native';
+import { View, ScrollView, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useVehicles, useDriverSettings } from '../../../src/hooks';
 import { VehicleSelector } from '../../../src/components/vehicles';
 import { Button, Input, Card, DatePicker } from '../../../src/components/ui';
 import { Vehicle } from '../../../src/types';
+import { showAlert } from '../../../src/utils/alert';
 
 export default function EstimateStartScreen() {
   const router = useRouter();
@@ -36,18 +37,18 @@ export default function EstimateStartScreen() {
 
   const handleNext = () => {
     if (!customerName.trim()) {
-      Alert.alert('Error', 'Please enter customer name');
+      showAlert('Error', 'Please enter customer name');
       return;
     }
 
     if (!selectedVehicle) {
-      Alert.alert('Error', 'Please select a vehicle');
+      showAlert('Error', 'Please select a vehicle');
       return;
     }
 
     const days = parseInt(numberOfDays);
     if (isNaN(days) || days < 1) {
-      Alert.alert('Error', 'Please enter valid number of days');
+      showAlert('Error', 'Please enter valid number of days');
       return;
     }
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { Button, Input, Card } from '../../../src/components/ui';
 import { useDriverSettings } from '../../../src/hooks';
 import { LoadingSpinner } from '../../../src/components/ui';
+import { showAlert } from '../../../src/utils/alert';
 
 export default function SettingsScreen() {
   const { settings, isLoading, saveSettings } = useDriverSettings();
@@ -29,9 +30,9 @@ export default function SettingsScreen() {
         phone: phone.trim(),
         defaultBataPerDay: bata,
       });
-      Alert.alert('Success', 'Settings saved successfully');
+      showAlert('Success', 'Settings saved successfully');
     } catch (err) {
-      Alert.alert('Error', 'Failed to save settings');
+      showAlert('Error', 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }

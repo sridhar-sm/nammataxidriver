@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,6 +13,7 @@ import { useTrips } from '../../../src/hooks';
 import { TripCard } from '../../../src/components/trips';
 import { LoadingSpinner } from '../../../src/components/ui';
 import { TripStatus, Trip } from '../../../src/types';
+import { showAlert, showActionSheet } from '../../../src/utils/alert';
 
 type TabFilter = 'all' | TripStatus;
 
@@ -49,7 +49,7 @@ export default function TripsListScreen() {
         text: 'Cancel Trip',
         style: 'destructive',
         onPress: () => {
-          Alert.alert(
+          showAlert(
             'Cancel Trip',
             `Are you sure you want to cancel the trip for ${trip.customerName}?`,
             [
@@ -61,7 +61,7 @@ export default function TripsListScreen() {
                   try {
                     await cancelTrip(trip.id);
                   } catch (err) {
-                    Alert.alert('Error', 'Failed to cancel trip');
+                    showAlert('Error', 'Failed to cancel trip');
                   }
                 },
               },
@@ -76,7 +76,7 @@ export default function TripsListScreen() {
         text: 'Delete Trip',
         style: 'destructive',
         onPress: () => {
-          Alert.alert(
+          showAlert(
             'Delete Trip',
             `Are you sure you want to permanently delete this trip for ${trip.customerName}?`,
             [
@@ -88,7 +88,7 @@ export default function TripsListScreen() {
                   try {
                     await deleteTrip(trip.id);
                   } catch (err) {
-                    Alert.alert('Error', 'Failed to delete trip');
+                    showAlert('Error', 'Failed to delete trip');
                   }
                 },
               },
@@ -100,7 +100,7 @@ export default function TripsListScreen() {
 
     if (options.length > 0) {
       options.push({ text: 'Close', style: 'cancel' });
-      Alert.alert(trip.customerName, 'Select an action', options);
+      showActionSheet(trip.customerName, 'Select an action', options);
     }
   };
 

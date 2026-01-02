@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  Alert,
   TextInput,
   TouchableOpacity,
   Text,
@@ -17,6 +16,7 @@ import { PlaceSearchInput, WaypointList, RoutePreview } from '../../../src/compo
 import { useRouteCalculation, useVehicles, useTrips } from '../../../src/hooks';
 import { Place, Waypoint, Route } from '../../../src/types';
 import { searchPlaces } from '../../../src/services/nominatim';
+import { showAlert } from '../../../src/utils/alert';
 
 type EditingWaypoint = 'start' | 'end' | 'waypoint' | null;
 
@@ -160,7 +160,7 @@ export default function EstimateRouteScreen() {
   const handleCalculateRoute = async () => {
     const finalEndPlace = isRoundTrip ? startPlace : endPlace;
     if (!startPlace || !finalEndPlace) {
-      Alert.alert('Error', 'Please set start and end points');
+      showAlert('Error', 'Please set start and end points');
       return;
     }
 
@@ -170,7 +170,7 @@ export default function EstimateRouteScreen() {
 
   const handleSaveTrip = async () => {
     if (!route || !vehicle) {
-      Alert.alert('Error', 'Please calculate route first');
+      showAlert('Error', 'Please calculate route first');
       return;
     }
 
@@ -196,7 +196,7 @@ export default function EstimateRouteScreen() {
       // Navigate to trip details immediately after saving
       router.replace(`/(tabs)/trips/${trip.id}`);
     } catch (err) {
-      Alert.alert('Error', 'Failed to save trip');
+      showAlert('Error', 'Failed to save trip');
     } finally {
       setIsSaving(false);
     }
