@@ -60,6 +60,9 @@ export interface Trip {
   estimatedDistanceKm: number;
   estimatedTolls: number;
   estimatedFareBreakdown: FareBreakdown;
+  discount: number;
+  ratePerKmOverride?: number;
+  minKmPerDayOverride?: number;
 
   // Actual values (filled during/after trip)
   actualDistanceKm?: number;
@@ -99,6 +102,9 @@ export interface TripProposalFormData {
   bataPerDay: string;
   estimatedTolls: string;
   notes?: string;
+  discount?: string;
+  ratePerKmOverride?: string;
+  minKmPerDayOverride?: string;
 }
 
 export interface TripConfirmationData {

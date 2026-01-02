@@ -6,6 +6,7 @@ export interface FareInput {
   numberOfDays: number;
   bataPerDay: number;
   estimatedTolls: number;
+  discount?: number;
 }
 
 export interface FareBreakdown {
@@ -15,6 +16,7 @@ export interface FareBreakdown {
   totalBata: number;
   totalTolls: number;
   subtotal: number;
+  discount: number;
   grandTotal: number;
 }
 
@@ -26,4 +28,5 @@ export interface ActualFareInput {
   actualDays: number;
   actualTolls: number;
   bataPerDay: number;
+  discount?: number;
 }

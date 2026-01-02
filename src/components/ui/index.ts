@@ -4,3 +4,4 @@ export { Input } from './Input';
 export { Select } from './Select';
 export { LoadingSpinner } from './LoadingSpinner';
 export { DatePicker } from './DatePicker';
+export { StepIndicator } from './StepIndicator';

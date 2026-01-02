@@ -8,6 +8,7 @@ export function calculateFare(input: FareInput): FareBreakdown {
     numberOfDays,
     bataPerDay,
     estimatedTolls,
+    discount = 0,
   } = input;
 
   // Calculate minimum chargeable distance
@@ -24,7 +25,7 @@ export function calculateFare(input: FareInput): FareBreakdown {
 
   // Totals
   const subtotal = distanceCharges + totalBata;
-  const grandTotal = subtotal + estimatedTolls;
+  const grandTotal = subtotal + estimatedTolls - discount;
 
   return {
     actualDistance: totalDistanceKm,
@@ -33,6 +34,7 @@ export function calculateFare(input: FareInput): FareBreakdown {
     totalBata,
     totalTolls: estimatedTolls,
     subtotal,
+    discount,
     grandTotal,
   };
 }
@@ -46,5 +48,6 @@ export function calculateActualFare(input: ActualFareInput): FareBreakdown {
     numberOfDays: input.actualDays,
     bataPerDay: input.bataPerDay,
     estimatedTolls: input.actualTolls,
+    discount: input.discount,
   });
 }

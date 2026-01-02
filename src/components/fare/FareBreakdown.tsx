@@ -72,6 +72,12 @@ export function FareBreakdown({
           <Text style={styles.subtotalLabel}>Subtotal</Text>
           <Text style={styles.subtotalValue}>{formatCurrency(breakdown.subtotal)}</Text>
         </View>
+        {breakdown.discount > 0 && (
+          <View style={styles.row}>
+            <Text style={styles.discountLabel}>Discount</Text>
+            <Text style={styles.discountValue}>-{formatCurrency(breakdown.discount)}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.totalSection}>
@@ -122,6 +128,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1C1C1E',
+  },
+  discountLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#34C759',
+  },
+  discountValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#34C759',
   },
   totalSection: {
     backgroundColor: '#007AFF',

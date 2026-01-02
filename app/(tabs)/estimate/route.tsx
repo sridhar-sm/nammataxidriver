@@ -9,48 +9,37 @@ import {
   FlatList,
   Switch,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { v4 as uuidv4 } from 'uuid';
+import { useEstimate } from '../../../src/contexts';
+import { EstimateHeader } from '../../../src/components/estimate';
 import { Button, Card, LoadingSpinner } from '../../../src/components/ui';
-import { PlaceSearchInput, WaypointList, RoutePreview } from '../../../src/components/location';
-import { useRouteCalculation, useVehicles, useTrips } from '../../../src/hooks';
-import { Place, Waypoint, Route } from '../../../src/types';
+import { PlaceSearchInput, RoutePreview } from '../../../src/components/location';
+import { useRouteCalculation } from '../../../src/hooks';
+import { Place, Waypoint } from '../../../src/types';
 import { searchPlaces } from '../../../src/services/nominatim';
 import { showAlert } from '../../../src/utils/alert';
+import { colors } from '../../../src/constants/colors';
 
 type EditingWaypoint = 'start' | 'end' | 'waypoint' | null;
 
-export default function EstimateRouteScreen() {
-  const params = useLocalSearchParams<{
-    customerName: string;
-    customerPhone: string;
-    proposedStartDate: string;
-    vehicleId: string;
-    numberOfDays: string;
-    bataPerDay: string;
-    estimatedTolls: string;
-    notes: string;
-  }>();
+export default function RouteScreen() {
   const router = useRouter();
-  const { getVehicle } = useVehicles();
-  const { createProposal } = useTrips();
+  const { data, updateData, setCurrentStep } = useEstimate();
   const { route, isCalculating, calculateRoute, error } = useRouteCalculation();
 
-  const [startPlace, setStartPlace] = useState<Place | null>(null);
-  const [endPlace, setEndPlace] = useState<Place | null>(null);
-  const [intermediateWaypoints, setIntermediateWaypoints] = useState<Place[]>([]);
-  const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Place[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [editingWaypoint, setEditingWaypoint] = useState<EditingWaypoint>(null);
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [isSaving, setIsSaving] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<TextInput>(null);
 
-  const vehicle = getVehicle(params.vehicleId);
+  useEffect(() => {
+    setCurrentStep(2);
+  }, []);
 
   useEffect(() => {
     if (editingWaypoint && inputRef.current) {
@@ -88,30 +77,35 @@ export default function EstimateRouteScreen() {
     };
   }, [searchQuery]);
 
-  // When round trip is toggled on, set end place to start place
   useEffect(() => {
-    if (isRoundTrip && startPlace) {
-      setEndPlace(startPlace);
-    } else if (!isRoundTrip && startPlace && endPlace?.id === startPlace.id) {
-      setEndPlace(null);
+    if (data.isRoundTrip && data.startPlace) {
+      updateData({ endPlace: data.startPlace });
+    } else if (!data.isRoundTrip && data.startPlace && data.endPlace?.id === data.startPlace.id) {
+      updateData({ endPlace: null });
     }
-  }, [isRoundTrip, startPlace]);
+  }, [data.isRoundTrip, data.startPlace]);
+
+  useEffect(() => {
+    if (route) {
+      updateData({ route });
+    }
+  }, [route]);
 
   const handleSelectPlace = (place: Place) => {
     if (editingWaypoint === 'start') {
-      setStartPlace(place);
-      if (isRoundTrip) {
-        setEndPlace(place);
+      updateData({ startPlace: place });
+      if (data.isRoundTrip) {
+        updateData({ endPlace: place });
       }
     } else if (editingWaypoint === 'end') {
-      setEndPlace(place);
+      updateData({ endPlace: place });
     } else if (editingWaypoint === 'waypoint') {
       if (editingIndex >= 0) {
-        const updated = [...intermediateWaypoints];
+        const updated = [...data.intermediateWaypoints];
         updated[editingIndex] = place;
-        setIntermediateWaypoints(updated);
+        updateData({ intermediateWaypoints: updated });
       } else {
-        setIntermediateWaypoints([...intermediateWaypoints, place]);
+        updateData({ intermediateWaypoints: [...data.intermediateWaypoints, place] });
       }
     }
     setEditingWaypoint(null);
@@ -123,17 +117,17 @@ export default function EstimateRouteScreen() {
   const buildWaypoints = useCallback((): Waypoint[] => {
     const waypoints: Waypoint[] = [];
 
-    if (startPlace) {
+    if (data.startPlace) {
       waypoints.push({
         id: uuidv4(),
-        place: startPlace,
+        place: data.startPlace,
         order: 0,
         isStart: true,
         isEnd: false,
       });
     }
 
-    intermediateWaypoints.forEach((place, index) => {
+    data.intermediateWaypoints.forEach((place, index) => {
       waypoints.push({
         id: uuidv4(),
         place,
@@ -143,7 +137,7 @@ export default function EstimateRouteScreen() {
       });
     });
 
-    const finalEndPlace = isRoundTrip ? startPlace : endPlace;
+    const finalEndPlace = data.isRoundTrip ? data.startPlace : data.endPlace;
     if (finalEndPlace) {
       waypoints.push({
         id: uuidv4(),
@@ -155,11 +149,11 @@ export default function EstimateRouteScreen() {
     }
 
     return waypoints;
-  }, [startPlace, endPlace, intermediateWaypoints, isRoundTrip]);
+  }, [data.startPlace, data.endPlace, data.intermediateWaypoints, data.isRoundTrip]);
 
   const handleCalculateRoute = async () => {
-    const finalEndPlace = isRoundTrip ? startPlace : endPlace;
-    if (!startPlace || !finalEndPlace) {
+    const finalEndPlace = data.isRoundTrip ? data.startPlace : data.endPlace;
+    if (!data.startPlace || !finalEndPlace) {
       showAlert('Error', 'Please set start and end points');
       return;
     }
@@ -168,45 +162,12 @@ export default function EstimateRouteScreen() {
     await calculateRoute(waypoints);
   };
 
-  const handleSaveTrip = async () => {
-    if (!route || !vehicle) {
+  const handleNext = () => {
+    if (!data.route) {
       showAlert('Error', 'Please calculate route first');
       return;
     }
-
-    setIsSaving(true);
-    try {
-      const trip = await createProposal(
-        {
-          customerName: params.customerName,
-          customerPhone: params.customerPhone,
-          vehicleId: params.vehicleId,
-          proposedStartDate: params.proposedStartDate,
-          numberOfDays: params.numberOfDays,
-          bataPerDay: params.bataPerDay,
-          estimatedTolls: params.estimatedTolls,
-          notes: params.notes,
-        },
-        vehicle,
-        route,
-        route.totalDistanceKm,
-        isRoundTrip
-      );
-
-      // Navigate to trip details immediately after saving
-      router.replace(`/(tabs)/trips/${trip.id}`);
-    } catch (err) {
-      showAlert('Error', 'Failed to save trip');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const removeWaypoint = (index: number) => {
-    const adjustedIndex = index - 1;
-    if (adjustedIndex >= 0 && adjustedIndex < intermediateWaypoints.length) {
-      setIntermediateWaypoints(intermediateWaypoints.filter((_, i) => i !== adjustedIndex));
-    }
+    router.push('/(tabs)/estimate/review');
   };
 
   const getEditingTitle = () => {
@@ -218,8 +179,17 @@ export default function EstimateRouteScreen() {
   if (editingWaypoint) {
     return (
       <View style={styles.container}>
+        <EstimateHeader
+          currentStep={2}
+          title={`Search ${getEditingTitle()}`}
+          onBack={() => {
+            setEditingWaypoint(null);
+            setSearchQuery('');
+            setSearchResults([]);
+          }}
+        />
         <View style={styles.searchContainer}>
-          <Card title={`Search ${getEditingTitle()}`}>
+          <Card>
             <View style={styles.searchBox}>
               <TextInput
                 ref={inputRef}
@@ -279,113 +249,119 @@ export default function EstimateRouteScreen() {
     );
   }
 
-  const finalEndPlace = isRoundTrip ? startPlace : endPlace;
+  const finalEndPlace = data.isRoundTrip ? data.startPlace : data.endPlace;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card title="Route Points">
-        <PlaceSearchInput
-          value={startPlace}
-          onPress={() => setEditingWaypoint('start')}
-          placeholder="Set start point..."
-          label="Start Point"
-        />
-
-        {/* Round Trip Toggle */}
-        <View style={styles.roundTripRow}>
-          <Text style={styles.roundTripLabel}>Return to start (Round trip)</Text>
-          <Switch
-            value={isRoundTrip}
-            onValueChange={setIsRoundTrip}
-            trackColor={{ false: '#E5E5EA', true: '#34C759' }}
-          />
-        </View>
-
-        {!isRoundTrip && (
+    <View style={styles.container}>
+      <EstimateHeader currentStep={2} title="Plan Route" />
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <Card title="Route Points">
           <PlaceSearchInput
-            value={endPlace}
-            onPress={() => setEditingWaypoint('end')}
-            placeholder="Set end point..."
-            label="End Point"
+            value={data.startPlace}
+            onPress={() => setEditingWaypoint('start')}
+            placeholder="Set start point..."
+            label="Start Point"
           />
-        )}
 
-        {isRoundTrip && startPlace && (
-          <View style={styles.roundTripNote}>
-            <Text style={styles.roundTripNoteIcon}>↩️</Text>
-            <Text style={styles.roundTripNoteText}>
-              Returning to {startPlace.shortName}
-            </Text>
+          <View style={styles.roundTripRow}>
+            <Text style={styles.roundTripLabel}>Return to start (Round trip)</Text>
+            <Switch
+              value={data.isRoundTrip}
+              onValueChange={(value) => updateData({ isRoundTrip: value })}
+              trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+            />
           </View>
-        )}
+
+          {!data.isRoundTrip && (
+            <PlaceSearchInput
+              value={data.endPlace}
+              onPress={() => setEditingWaypoint('end')}
+              placeholder="Set end point..."
+              label="End Point"
+            />
+          )}
+
+          {data.isRoundTrip && data.startPlace && (
+            <View style={styles.roundTripNote}>
+              <Text style={styles.roundTripNoteIcon}>↩️</Text>
+              <Text style={styles.roundTripNoteText}>
+                Returning to {data.startPlace.shortName}
+              </Text>
+            </View>
+          )}
+
+          <Button
+            title="+ Add Waypoint"
+            onPress={() => {
+              setEditingWaypoint('waypoint');
+              setEditingIndex(-1);
+            }}
+            variant="outline"
+            style={styles.addWaypointButton}
+          />
+
+          {data.intermediateWaypoints.length > 0 && (
+            <View style={styles.waypointsSection}>
+              <Text style={styles.waypointsSectionTitle}>Stops</Text>
+              {data.intermediateWaypoints.map((place, index) => (
+                <View key={index} style={styles.waypointItem}>
+                  <Text style={styles.waypointNumber}>{index + 1}</Text>
+                  <Text style={styles.waypointName} numberOfLines={1}>
+                    {place.shortName}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      updateData({
+                        intermediateWaypoints: data.intermediateWaypoints.filter(
+                          (_, i) => i !== index
+                        ),
+                      });
+                    }}
+                  >
+                    <Text style={styles.waypointRemove}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </Card>
 
         <Button
-          title="+ Add Waypoint"
-          onPress={() => {
-            setEditingWaypoint('waypoint');
-            setEditingIndex(-1);
-          }}
-          variant="outline"
-          style={styles.addWaypointButton}
+          title="Calculate Route Distance"
+          onPress={handleCalculateRoute}
+          loading={isCalculating}
+          disabled={!data.startPlace || !finalEndPlace}
+          style={styles.calculateButton}
         />
 
-        {intermediateWaypoints.length > 0 && (
-          <View style={styles.waypointsSection}>
-            <Text style={styles.waypointsSectionTitle}>Stops</Text>
-            {intermediateWaypoints.map((place, index) => (
-              <View key={index} style={styles.waypointItem}>
-                <Text style={styles.waypointNumber}>{index + 1}</Text>
-                <Text style={styles.waypointName} numberOfLines={1}>
-                  {place.shortName}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setIntermediateWaypoints(
-                      intermediateWaypoints.filter((_, i) => i !== index)
-                    );
-                  }}
-                >
-                  <Text style={styles.waypointRemove}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
+        {error && (
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorText}>{error.message}</Text>
+          </Card>
         )}
-      </Card>
 
-      <Button
-        title="Calculate Route Distance"
-        onPress={handleCalculateRoute}
-        loading={isCalculating}
-        disabled={!startPlace || !finalEndPlace}
-        style={styles.calculateButton}
-      />
-
-      {error && (
-        <Card style={styles.errorCard}>
-          <Text style={styles.errorText}>{error.message}</Text>
-        </Card>
-      )}
-
-      {route && (
-        <>
-          <RoutePreview route={route} />
-          <Button
-            title="Save Trip Proposal"
-            onPress={handleSaveTrip}
-            loading={isSaving}
-            style={styles.proceedButton}
-          />
-        </>
-      )}
-    </ScrollView>
+        {data.route && (
+          <>
+            <RoutePreview route={data.route} />
+            <Button
+              title="Next: Review Estimate →"
+              onPress={handleNext}
+              style={styles.proceedButton}
+            />
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background.primary,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,
