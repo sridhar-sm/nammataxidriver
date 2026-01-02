@@ -1,26 +1,15 @@
 import { Stack } from 'expo-router';
+import { EstimateProvider } from '../../../src/contexts';
 
 export default function EstimateLayout() {
   return (
-    <Stack>
-      <Stack.Screen
-        name="index"
-        options={{
-          title: 'Estimate Fare',
-        }}
-      />
-      <Stack.Screen
-        name="route"
-        options={{
-          title: 'Plan Route',
-        }}
-      />
-      <Stack.Screen
-        name="result"
-        options={{
-          title: 'Fare Estimate',
-        }}
-      />
-    </Stack>
+    <EstimateProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="vehicle" />
+        <Stack.Screen name="route" />
+        <Stack.Screen name="review" />
+      </Stack>
+    </EstimateProvider>
   );
 }

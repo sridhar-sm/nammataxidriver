@@ -62,15 +62,26 @@ export function useTrips() {
     const numberOfDays = parseInt(data.numberOfDays) || 1;
     const bataPerDay = parseFloat(data.bataPerDay) || 0;
     const estimatedTolls = parseFloat(data.estimatedTolls) || 0;
+    const discount = parseFloat(data.discount || '0') || 0;
+    const ratePerKmOverride = data.ratePerKmOverride
+      ? parseFloat(data.ratePerKmOverride)
+      : undefined;
+    const minKmPerDayOverride = data.minKmPerDayOverride
+      ? parseFloat(data.minKmPerDayOverride)
+      : undefined;
+
+    const effectiveRatePerKm = ratePerKmOverride ?? vehicle.ratePerKm;
+    const effectiveMinKm = minKmPerDayOverride ?? vehicle.minKmPerDay;
 
     const fareBreakdown = calculateFare({
       vehicleId: vehicle.id,
-      ratePerKm: vehicle.ratePerKm,
-      minKmPerDay: vehicle.minKmPerDay,
+      ratePerKm: effectiveRatePerKm,
+      minKmPerDay: effectiveMinKm,
       totalDistanceKm: estimatedDistanceKm,
       numberOfDays,
       bataPerDay,
       estimatedTolls,
+      discount,
     });
 
     const startLocation = route?.waypoints.find((w) => w.isStart)?.place.shortName;
@@ -93,6 +104,9 @@ export function useTrips() {
       estimatedDistanceKm,
       estimatedTolls,
       estimatedFareBreakdown: fareBreakdown,
+      discount,
+      ratePerKmOverride,
+      minKmPerDayOverride,
       tollEntries: [],
       advancePayments: [],
       notes: data.notes,
@@ -277,6 +291,58 @@ export function useTrips() {
     return trips.find((t) => t.id === tripId);
   };
 
+  // Update a proposed trip (for editing estimates)
+  interface UpdateProposalData {
+    numberOfDays?: number;
+    bataPerDay?: number;
+    estimatedTolls?: number;
+    discount?: number;
+    notes?: string;
+  }
+
+  const updateProposal = async (
+    tripId: string,
+    updates: UpdateProposalData
+  ): Promise<Trip> => {
+    const trip = trips.find((t) => t.id === tripId);
+    if (!trip) throw new Error('Trip not found');
+    if (trip.status !== 'proposed') throw new Error('Can only edit proposed trips');
+
+    const numberOfDays = updates.numberOfDays ?? trip.numberOfDays;
+    const bataPerDay = updates.bataPerDay ?? trip.bataPerDay;
+    const estimatedTolls = updates.estimatedTolls ?? trip.estimatedTolls;
+    const discount = updates.discount ?? trip.discount;
+
+    const effectiveRatePerKm = trip.ratePerKmOverride ?? trip.vehicleSnapshot.ratePerKm;
+    const effectiveMinKm = trip.minKmPerDayOverride ?? trip.vehicleSnapshot.minKmPerDay;
+
+    const fareBreakdown = calculateFare({
+      vehicleId: trip.vehicleId,
+      ratePerKm: effectiveRatePerKm,
+      minKmPerDay: effectiveMinKm,
+      totalDistanceKm: trip.estimatedDistanceKm,
+      numberOfDays,
+      bataPerDay,
+      estimatedTolls,
+      discount,
+    });
+
+    const updated: Trip = {
+      ...trip,
+      numberOfDays,
+      bataPerDay,
+      estimatedTolls,
+      discount,
+      notes: updates.notes ?? trip.notes,
+      estimatedFareBreakdown: fareBreakdown,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await storage.saveTrip(updated);
+    setTrips((prev) => prev.map((t) => (t.id === tripId ? updated : t)));
+    return updated;
+  };
+
   return {
     trips,
     isLoading,
@@ -286,6 +352,7 @@ export function useTrips() {
     activeTrips,
     completedTrips,
     createProposal,
+    updateProposal,
     confirmTrip,
     startTrip,
     addTollEntry,

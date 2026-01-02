@@ -16,6 +16,7 @@ import {
   AddTollModal,
   CompleteTripModal,
   AddAdvanceModal,
+  EditEstimateModal,
 } from '../../../src/components/trips';
 import { FareBreakdown } from '../../../src/components/fare';
 import { Button, Card, LoadingSpinner } from '../../../src/components/ui';
@@ -28,7 +29,7 @@ import {
 } from '../../../src/utils';
 import { colors } from '../../../src/constants/colors';
 
-type ModalType = 'confirm' | 'start' | 'toll' | 'complete' | 'advance' | null;
+type ModalType = 'confirm' | 'start' | 'toll' | 'complete' | 'advance' | 'edit' | null;
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,6 +43,7 @@ export default function TripDetailScreen() {
     addAdvancePayment,
     completeTrip,
     cancelTrip,
+    updateProposal,
     isLoading,
     refreshTrips,
   } = useTrips();
@@ -174,6 +176,25 @@ export default function TripDetailScreen() {
     ]);
   };
 
+  const handleEditEstimate = async (data: {
+    numberOfDays: number;
+    bataPerDay: number;
+    estimatedTolls: number;
+    discount: number;
+    notes?: string;
+  }) => {
+    setIsSubmitting(true);
+    try {
+      await updateProposal(id, data);
+      setModalType(null);
+      refreshTrips();
+    } catch {
+      showAlert('Error', 'Failed to update estimate');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const generateWhatsAppText = () => {
     const balanceDue = fareBreakdown.grandTotal - totalAdvances;
     const balanceLabel =
@@ -248,6 +269,7 @@ export default function TripDetailScreen() {
         startLocationName={trip.startLocationName}
         endLocationName={trip.endLocationName}
         isRoundTrip={trip.isRoundTrip}
+        route={trip.route}
       />
 
       <TripDetailsCard
@@ -302,6 +324,12 @@ export default function TripDetailScreen() {
             <Button
               title="Confirm Trip"
               onPress={() => setModalType('confirm')}
+              style={styles.actionButton}
+            />
+            <Button
+              title="Edit Estimate"
+              onPress={() => setModalType('edit')}
+              variant="secondary"
               style={styles.actionButton}
             />
             <Button
@@ -416,6 +444,14 @@ export default function TripDetailScreen() {
         visible={modalType === 'advance'}
         onClose={() => setModalType(null)}
         onAdd={handleAddAdvance}
+        isSubmitting={isSubmitting}
+      />
+
+      <EditEstimateModal
+        visible={modalType === 'edit'}
+        onClose={() => setModalType(null)}
+        onSave={handleEditEstimate}
+        trip={trip}
         isSubmitting={isSubmitting}
       />
     </ScrollView>
