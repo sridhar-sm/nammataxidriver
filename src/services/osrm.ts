@@ -1,5 +1,6 @@
 import { OSRM_BASE_URL } from '../constants/api';
 import { Coordinates, Route, Waypoint, RouteSegment } from '../types';
+import { fetchWithRetry } from '../utils/fetch';
 
 interface OSRMRouteResponse {
   code: string;
@@ -25,12 +26,7 @@ export async function calculateRoute(waypoints: Waypoint[]): Promise<Route> {
 
   const url = `${OSRM_BASE_URL}/route/v1/driving/${coordsString}?overview=false&steps=false`;
 
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`OSRM request failed: ${response.status}`);
-  }
-
+  const response = await fetchWithRetry(url);
   const data: OSRMRouteResponse = await response.json();
 
   if (data.code !== 'Ok' || !data.routes.length) {
@@ -66,12 +62,7 @@ export async function getDistanceBetweenPoints(
   const coordsString = `${start.longitude},${start.latitude};${end.longitude},${end.latitude}`;
   const url = `${OSRM_BASE_URL}/route/v1/driving/${coordsString}?overview=false`;
 
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`OSRM request failed: ${response.status}`);
-  }
-
+  const response = await fetchWithRetry(url);
   const data: OSRMRouteResponse = await response.json();
 
   if (data.code !== 'Ok' || !data.routes.length) {

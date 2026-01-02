@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { z } from 'zod';
 import { STORAGE_KEYS } from '../constants/storage';
 import { Vehicle, Trip, Place, DriverSettings, DEFAULT_DRIVER_SETTINGS } from '../types';
+import {
+  VehicleSchema,
+  TripSchema,
+  PlaceSchema,
+  DriverSettingsSchema,
+} from '../types/schemas';
 
 export async function getItem<T>(key: string): Promise<T | null> {
   try {
@@ -30,9 +37,41 @@ export async function removeItem(key: string): Promise<void> {
   }
 }
 
+function validateArray<T>(
+  data: unknown,
+  schema: z.ZodType<T>,
+  entityName: string
+): T[] {
+  if (!Array.isArray(data)) {
+    console.warn(`${entityName} data is not an array, returning empty array`);
+    return [];
+  }
+
+  const validItems: T[] = [];
+  const invalidCount = { count: 0 };
+
+  for (const item of data) {
+    const result = schema.safeParse(item);
+    if (result.success) {
+      validItems.push(result.data);
+    } else {
+      invalidCount.count++;
+      console.warn(`Invalid ${entityName} item skipped:`, result.error.issues);
+    }
+  }
+
+  if (invalidCount.count > 0) {
+    console.warn(`Skipped ${invalidCount.count} invalid ${entityName} items`);
+  }
+
+  return validItems;
+}
+
 // Vehicle operations
 export async function getVehicles(): Promise<Vehicle[]> {
-  return (await getItem<Vehicle[]>(STORAGE_KEYS.VEHICLES)) || [];
+  const raw = await getItem<unknown[]>(STORAGE_KEYS.VEHICLES);
+  if (!raw) return [];
+  return validateArray(raw, VehicleSchema, 'Vehicle');
 }
 
 export async function saveVehicle(vehicle: Vehicle): Promise<void> {
@@ -56,7 +95,9 @@ export async function deleteVehicle(id: string): Promise<void> {
 
 // Trip operations
 export async function getTrips(): Promise<Trip[]> {
-  return (await getItem<Trip[]>(STORAGE_KEYS.TRIPS)) || [];
+  const raw = await getItem<unknown[]>(STORAGE_KEYS.TRIPS);
+  if (!raw) return [];
+  return validateArray(raw, TripSchema, 'Trip');
 }
 
 export async function saveTrip(trip: Trip): Promise<void> {
@@ -80,7 +121,9 @@ export async function deleteTrip(id: string): Promise<void> {
 
 // Recent searches
 export async function getRecentSearches(): Promise<Place[]> {
-  return (await getItem<Place[]>(STORAGE_KEYS.RECENT_SEARCHES)) || [];
+  const raw = await getItem<unknown[]>(STORAGE_KEYS.RECENT_SEARCHES);
+  if (!raw) return [];
+  return validateArray(raw, PlaceSchema, 'Place');
 }
 
 export async function addRecentSearch(place: Place): Promise<void> {
@@ -97,7 +140,16 @@ export async function clearRecentSearches(): Promise<void> {
 
 // Driver settings
 export async function getDriverSettings(): Promise<DriverSettings> {
-  return (await getItem<DriverSettings>(STORAGE_KEYS.DRIVER_SETTINGS)) || DEFAULT_DRIVER_SETTINGS;
+  const raw = await getItem<unknown>(STORAGE_KEYS.DRIVER_SETTINGS);
+  if (!raw) return DEFAULT_DRIVER_SETTINGS;
+
+  const result = DriverSettingsSchema.safeParse(raw);
+  if (result.success) {
+    return result.data;
+  }
+
+  console.warn('Invalid driver settings, returning defaults:', result.error.issues);
+  return DEFAULT_DRIVER_SETTINGS;
 }
 
 export async function saveDriverSettings(settings: DriverSettings): Promise<void> {

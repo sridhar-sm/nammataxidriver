@@ -19,8 +19,10 @@ export function usePlaceSearch() {
     getRecentSearches().then(setRecentSearches);
   }, []);
 
-  // Debounced search
+  // Debounced search with cleanup to prevent memory leaks
   useEffect(() => {
+    let isMounted = true;
+
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -36,17 +38,24 @@ export function usePlaceSearch() {
     debounceRef.current = setTimeout(async () => {
       try {
         const places = await searchPlaces(query);
-        setResults(places);
-        setError(null);
+        if (isMounted) {
+          setResults(places);
+          setError(null);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Search failed'));
-        setResults([]);
+        if (isMounted) {
+          setError(err instanceof Error ? err : new Error('Search failed'));
+          setResults([]);
+        }
       } finally {
-        setIsSearching(false);
+        if (isMounted) {
+          setIsSearching(false);
+        }
       }
     }, DEBOUNCE_MS);
 
     return () => {
+      isMounted = false;
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
