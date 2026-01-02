@@ -1,2 +1,10 @@
 export { TripCard } from './TripCard';
 export { TripStatusBadge } from './TripStatusBadge';
+export { TripDetailHeader } from './TripDetailHeader';
+export { TripRouteCard } from './TripRouteCard';
+export { TripDetailsCard } from './TripDetailsCard';
+export { TripOdometerCard } from './TripOdometerCard';
+export { TripTollsCard } from './TripTollsCard';
+export { TripAdvancesCard } from './TripAdvancesCard';
+export { TripPaymentSummary } from './TripPaymentSummary';
+export * from './modals';

@@ -7,6 +7,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { colors } from '../../constants/colors';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger';
 
@@ -18,6 +19,27 @@ interface ButtonProps {
   loading?: boolean;
   style?: ViewStyle;
 }
+
+const variantStyles: Record<ButtonVariant, ViewStyle> = {
+  primary: { backgroundColor: colors.primary },
+  secondary: { backgroundColor: colors.secondary },
+  outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.primary },
+  danger: { backgroundColor: colors.danger },
+};
+
+const textStyles: Record<ButtonVariant, TextStyle> = {
+  primary: { color: colors.text.inverse },
+  secondary: { color: colors.text.inverse },
+  outline: { color: colors.primary },
+  danger: { color: colors.text.inverse },
+};
+
+const loaderColors: Record<ButtonVariant, string> = {
+  primary: colors.text.inverse,
+  secondary: colors.text.inverse,
+  outline: colors.primary,
+  danger: colors.text.inverse,
+};
 
 export function Button({
   title,
@@ -33,7 +55,7 @@ export function Button({
     <TouchableOpacity
       style={[
         styles.button,
-        styles[variant],
+        variantStyles[variant],
         isDisabled && styles.disabled,
         style,
       ]}
@@ -42,14 +64,9 @@ export function Button({
       activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'outline' ? '#007AFF' : '#FFFFFF'}
-          size="small"
-        />
+        <ActivityIndicator color={loaderColors[variant]} size="small" />
       ) : (
-        <Text style={[styles.text, styles[`${variant}Text` as keyof typeof styles] as TextStyle]}>
-          {title}
-        </Text>
+        <Text style={[styles.text, textStyles[variant]]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -64,37 +81,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
   },
-  primary: {
-    backgroundColor: '#007AFF',
-  },
-  secondary: {
-    backgroundColor: '#5856D6',
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: '#007AFF',
-  },
-  danger: {
-    backgroundColor: '#FF3B30',
-  },
   disabled: {
     opacity: 0.5,
   },
   text: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  primaryText: {
-    color: '#FFFFFF',
-  },
-  secondaryText: {
-    color: '#FFFFFF',
-  },
-  outlineText: {
-    color: '#007AFF',
-  },
-  dangerText: {
-    color: '#FFFFFF',
   },
 });

@@ -1,18 +1,19 @@
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
+import { colors } from '../../src/constants/colors';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.text.secondary,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E5E5EA',
+          backgroundColor: colors.background.secondary,
+          borderTopColor: colors.border.primary,
         },
         headerStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: colors.background.secondary,
         },
         headerTitleStyle: {
           fontWeight: '600',
@@ -23,7 +24,11 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🏠</Text>,
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }} accessibilityLabel="Home">
+              🏠
+            </Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -31,7 +36,11 @@ export default function TabLayout() {
         options={{
           title: 'Vehicles',
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🚗</Text>,
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }} accessibilityLabel="Vehicles">
+              🚗
+            </Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -39,7 +48,11 @@ export default function TabLayout() {
         options={{
           title: 'Trips',
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📋</Text>,
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }} accessibilityLabel="Trips">
+              📋
+            </Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -47,14 +60,11 @@ export default function TabLayout() {
         options={{
           title: 'New Trip',
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>➕</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="calculate"
-        options={{
-          href: null,
-          headerShown: false,
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }} accessibilityLabel="New Trip">
+              ➕
+            </Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -62,7 +72,11 @@ export default function TabLayout() {
         options={{
           title: 'Settings',
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>&#x2699;&#xFE0F;</Text>,
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24, color }} accessibilityLabel="Settings">
+              ⚙️
+            </Text>
+          ),
         }}
       />
     </Tabs>

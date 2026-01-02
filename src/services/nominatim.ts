@@ -57,7 +57,7 @@ export async function searchPlaces(query: string, countryCode = 'in'): Promise<P
     countrycodes: countryCode,
   });
 
-  const response = await fetch(`${NOMINATIM_BASE_URL}/search?${params}`, {
+  const response = await rateLimitedFetch(`${NOMINATIM_BASE_URL}/search?${params}`, {
     headers: {
       'User-Agent': USER_AGENT,
       'Accept': 'application/json',
@@ -90,7 +90,7 @@ export async function reverseGeocode(coords: Coordinates): Promise<Place | null>
     addressdetails: '1',
   });
 
-  const response = await fetch(`${NOMINATIM_BASE_URL}/reverse?${params}`, {
+  const response = await rateLimitedFetch(`${NOMINATIM_BASE_URL}/reverse?${params}`, {
     headers: {
       'User-Agent': USER_AGENT,
       'Accept': 'application/json',
