@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -81,6 +81,30 @@ export default function CalendarScreen() {
     });
   };
 
+  const getTripAmountInfo = (trip: Trip) => {
+    const totalAdvances = (trip.advancePayments || []).reduce((sum, p) => sum + p.amount, 0);
+    const isCompleted = trip.status === 'completed';
+    const isActive = trip.status === 'active';
+    const baseTotal =
+      isCompleted && trip.actualFareBreakdown
+        ? trip.actualFareBreakdown.grandTotal
+        : trip.estimatedFareBreakdown.grandTotal;
+
+    if ((isCompleted || isActive) && totalAdvances > 0) {
+      const balanceDue = baseTotal - totalAdvances;
+      const label = balanceDue < 0
+        ? isCompleted
+          ? 'Refund Due'
+          : 'Estimated Refund Due'
+        : isCompleted
+          ? 'Balance Due'
+          : 'Estimated Balance Due';
+      return { label, amount: Math.abs(balanceDue), showLabel: true };
+    }
+
+    return { label: '', amount: baseTotal, showLabel: false };
+  };
+
   const handleDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
   };
@@ -91,6 +115,7 @@ export default function CalendarScreen() {
         onDayPress={handleDayPress}
         markedDates={getMarkedDates()}
         markingType="multi-dot"
+        enableSwipeMonths={Platform.OS !== 'web'}
         theme={{
           backgroundColor: '#F2F2F7',
           calendarBackground: '#FFFFFF',
@@ -139,29 +164,37 @@ export default function CalendarScreen() {
             <FlatList
               data={selectedTrips}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.tripItem}
-                  onPress={() => router.push(`/(tabs)/trips/${item.id}`)}
-                >
-                  <View
-                    style={[
-                      styles.tripStatusIndicator,
-                      { backgroundColor: STATUS_COLORS[item.status] },
-                    ]}
-                  />
-                  <View style={styles.tripInfo}>
-                    <Text style={styles.tripCustomer}>{item.customerName}</Text>
-                    <Text style={styles.tripRoute}>
-                      {item.startLocationName || 'Start'} {item.isRoundTrip ? '<->' : '->'}{' '}
-                      {item.endLocationName || 'End'}
-                    </Text>
-                  </View>
-                  <Text style={styles.tripAmount}>
-                    {formatCurrency(item.estimatedFareBreakdown.grandTotal)}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const amountInfo = getTripAmountInfo(item);
+                return (
+                  <TouchableOpacity
+                    style={styles.tripItem}
+                    onPress={() => router.push(`/(tabs)/trips/${item.id}`)}
+                  >
+                    <View
+                      style={[
+                        styles.tripStatusIndicator,
+                        { backgroundColor: STATUS_COLORS[item.status] },
+                      ]}
+                    />
+                    <View style={styles.tripInfo}>
+                      <Text style={styles.tripCustomer}>{item.customerName}</Text>
+                      <Text style={styles.tripRoute}>
+                        {item.startLocationName || 'Start'} {item.isRoundTrip ? '<->' : '->'}{' '}
+                        {item.endLocationName || 'End'}
+                      </Text>
+                    </View>
+                    <View style={styles.tripAmountContainer}>
+                      {amountInfo.showLabel && (
+                        <Text style={styles.tripAmountLabel}>{amountInfo.label}</Text>
+                      )}
+                      <Text style={styles.tripAmount}>
+                        {formatCurrency(amountInfo.amount)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
             />
           )}
         </View>
@@ -260,5 +293,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#007AFF',
+  },
+  tripAmountContainer: {
+    alignItems: 'flex-end',
+    marginLeft: 12,
+  },
+  tripAmountLabel: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginBottom: 2,
   },
 });

@@ -1,20 +1,18 @@
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState, useLayoutEffect, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  Alert,
-  TextInput,
   Modal,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
-import { useTrips, useVehicles } from '../../../src/hooks';
+import { useTrips } from '../../../src/hooks';
 import { TripStatusBadge } from '../../../src/components/trips';
 import { FareBreakdown } from '../../../src/components/fare';
-import { Button, Card, Input, LoadingSpinner } from '../../../src/components/ui';
-import { formatCurrency, formatDistance } from '../../../src/utils/formatters';
+import { Button, Card, Input, LoadingSpinner, DatePicker } from '../../../src/components/ui';
+import { formatCurrency, formatDistance, showAlert, calculateCalendarDaysSpanned } from '../../../src/utils';
 
 type ModalType = 'confirm' | 'start' | 'toll' | 'complete' | 'advance' | null;
 
@@ -29,8 +27,9 @@ export default function TripDetailScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal form states
-  const [confirmedStartTime, setConfirmedStartTime] = useState('');
-  const [confirmedEndTime, setConfirmedEndTime] = useState('');
+  const [confirmedStartTime, setConfirmedStartTime] = useState<Date | null>(null);
+  const [confirmedEndTime, setConfirmedEndTime] = useState<Date | null>(null);
+  const [useConfirmedEndTime, setUseConfirmedEndTime] = useState(false);
   const [odometerStart, setOdometerStart] = useState('');
   const [odometerEnd, setOdometerEnd] = useState('');
   const [tollAmount, setTollAmount] = useState('');
@@ -47,20 +46,6 @@ export default function TripDetailScreen() {
       });
     }
   }, [navigation, trip]);
-
-  if (isLoading && !trip) {
-    return <LoadingSpinner message="Loading trip..." />;
-  }
-
-  if (!trip) {
-    return (
-      <View style={styles.container}>
-        <Card>
-          <Text style={styles.errorText}>Trip not found</Text>
-        </Card>
-      </View>
-    );
-  }
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -82,23 +67,67 @@ export default function TripDetailScreen() {
     });
   };
 
+  const getDefaultConfirmedTime = () => {
+    const now = new Date();
+    const proposedDate = trip.proposedStartDate?.split('T')[0];
+    if (!proposedDate) return now;
+
+    const parts = proposedDate.split('-').map((value) => parseInt(value, 10));
+    if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
+      return now;
+    }
+    const [year, month, day] = parts;
+    return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), 0, 0);
+  };
+
+  useEffect(() => {
+    if (!trip || modalType !== 'confirm') return;
+    if (!confirmedStartTime) {
+      setConfirmedStartTime(getDefaultConfirmedTime());
+    }
+    if (!confirmedEndTime && useConfirmedEndTime) {
+      setConfirmedEndTime(getDefaultConfirmedTime());
+    }
+  }, [modalType, confirmedStartTime, confirmedEndTime, useConfirmedEndTime, trip?.proposedStartDate]);
+
+  if (isLoading && !trip) {
+    return <LoadingSpinner message="Loading trip..." />;
+  }
+
+  if (!trip) {
+    return (
+      <View style={styles.container}>
+        <Card>
+          <Text style={styles.errorText}>Trip not found</Text>
+        </Card>
+      </View>
+    );
+  }
+
   const handleConfirm = async () => {
     if (!confirmedStartTime) {
-      Alert.alert('Error', 'Please enter start time');
+      showAlert('Error', 'Please enter start time');
+      return;
+    }
+    if (useConfirmedEndTime && !confirmedEndTime) {
+      showAlert('Error', 'Please enter end time');
+      return;
+    }
+    if (useConfirmedEndTime && confirmedEndTime && confirmedEndTime < confirmedStartTime) {
+      showAlert('Error', 'End time must be after start time');
       return;
     }
     setIsSubmitting(true);
     try {
       await confirmTrip(id, {
-        confirmedStartTime: new Date(confirmedStartTime).toISOString(),
-        confirmedEndTime: confirmedEndTime
-          ? new Date(confirmedEndTime).toISOString()
-          : undefined,
+        confirmedStartTime: confirmedStartTime.toISOString(),
+        confirmedEndTime:
+          useConfirmedEndTime && confirmedEndTime ? confirmedEndTime.toISOString() : undefined,
       });
       setModalType(null);
       refreshTrips();
     } catch (error) {
-      Alert.alert('Error', 'Failed to confirm trip');
+      showAlert('Error', 'Failed to confirm trip');
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +136,7 @@ export default function TripDetailScreen() {
   const handleStart = async () => {
     const odometer = parseFloat(odometerStart);
     if (isNaN(odometer) || odometer <= 0) {
-      Alert.alert('Error', 'Please enter valid odometer reading');
+      showAlert('Error', 'Please enter valid odometer reading');
       return;
     }
     setIsSubmitting(true);
@@ -119,7 +148,7 @@ export default function TripDetailScreen() {
       setModalType(null);
       refreshTrips();
     } catch (error) {
-      Alert.alert('Error', 'Failed to start trip');
+      showAlert('Error', 'Failed to start trip');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,11 +157,11 @@ export default function TripDetailScreen() {
   const handleAddToll = async () => {
     const amount = parseFloat(tollAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter valid toll amount');
+      showAlert('Error', 'Please enter valid toll amount');
       return;
     }
     if (!tollLocation.trim()) {
-      Alert.alert('Error', 'Please enter toll location');
+      showAlert('Error', 'Please enter toll location');
       return;
     }
     setIsSubmitting(true);
@@ -143,7 +172,7 @@ export default function TripDetailScreen() {
       setModalType(null);
       refreshTrips();
     } catch (error) {
-      Alert.alert('Error', 'Failed to add toll');
+      showAlert('Error', 'Failed to add toll');
     } finally {
       setIsSubmitting(false);
     }
@@ -152,11 +181,11 @@ export default function TripDetailScreen() {
   const handleComplete = async () => {
     const odometer = parseFloat(odometerEnd);
     if (isNaN(odometer) || odometer <= 0) {
-      Alert.alert('Error', 'Please enter valid odometer reading');
+      showAlert('Error', 'Please enter valid odometer reading');
       return;
     }
     if (trip.odometerStart && odometer < trip.odometerStart.value) {
-      Alert.alert('Error', 'End odometer must be greater than start');
+      showAlert('Error', 'End odometer must be greater than start');
       return;
     }
     setIsSubmitting(true);
@@ -168,14 +197,14 @@ export default function TripDetailScreen() {
       setModalType(null);
       refreshTrips();
     } catch (error) {
-      Alert.alert('Error', 'Failed to complete trip');
+      showAlert('Error', 'Failed to complete trip');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleCancel = () => {
-    Alert.alert('Cancel Trip', 'Are you sure you want to cancel this trip?', [
+    showAlert('Cancel Trip', 'Are you sure you want to cancel this trip?', [
       { text: 'No', style: 'cancel' },
       {
         text: 'Yes, Cancel',
@@ -185,7 +214,7 @@ export default function TripDetailScreen() {
             await cancelTrip(id);
             router.back();
           } catch (error) {
-            Alert.alert('Error', 'Failed to cancel trip');
+            showAlert('Error', 'Failed to cancel trip');
           }
         },
       },
@@ -195,11 +224,11 @@ export default function TripDetailScreen() {
   const handleAddAdvance = async () => {
     const amount = parseFloat(advanceAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter valid amount');
+      showAlert('Error', 'Please enter valid amount');
       return;
     }
     if (!advanceReason.trim()) {
-      Alert.alert('Error', 'Please enter payment reason');
+      showAlert('Error', 'Please enter payment reason');
       return;
     }
     setIsSubmitting(true);
@@ -210,24 +239,41 @@ export default function TripDetailScreen() {
       setModalType(null);
       refreshTrips();
     } catch (error) {
-      Alert.alert('Error', 'Failed to add advance payment');
+      showAlert('Error', 'Failed to add advance payment');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const totalTolls = trip.tollEntries.reduce((sum, t) => sum + t.amount, 0);
-  const totalAdvances = (trip.advancePayments || []).reduce((sum, p) => sum + p.amount, 0);
-
-  const generateWhatsAppText = () => {
-    const fareBreakdown = trip.status === 'completed' && trip.actualFareBreakdown
+  const isCompleted = trip.status === 'completed';
+  const isActive = trip.status === 'active';
+  const fareBreakdown =
+    isCompleted && trip.actualFareBreakdown
       ? trip.actualFareBreakdown
       : trip.estimatedFareBreakdown;
-    const distance = trip.status === 'completed' && trip.actualDistanceKm
+  const distance =
+    isCompleted && trip.actualDistanceKm
       ? trip.actualDistanceKm
       : trip.estimatedDistanceKm;
-    const balance = fareBreakdown.grandTotal - totalAdvances;
+  const totalTolls = trip.tollEntries.reduce((sum, t) => sum + t.amount, 0);
+  const totalAdvances = (trip.advancePayments || []).reduce((sum, p) => sum + p.amount, 0);
+  const actualDays =
+    isCompleted && (trip.actualDays || (trip.actualStartTime && trip.actualEndTime))
+      ? trip.actualDays ??
+        calculateCalendarDaysSpanned(trip.actualStartTime, trip.actualEndTime)
+      : undefined;
+  const displayDays = isCompleted && actualDays ? actualDays : trip.numberOfDays;
+  const balanceDue = fareBreakdown.grandTotal - totalAdvances;
+  const balanceLabel = balanceDue < 0
+    ? isCompleted
+      ? 'Refund Due'
+      : 'Estimated Refund Due'
+    : isCompleted
+      ? 'Balance Due'
+      : 'Estimated Balance Due';
+  const balanceAmount = Math.abs(balanceDue);
 
+  const generateWhatsAppText = () => {
     let text = '';
     if (trip.status === 'proposed') {
       text = `*Trip Estimate*\n`;
@@ -236,7 +282,7 @@ export default function TripDetailScreen() {
       text += `Route: ${trip.startLocationName || 'TBD'} ${trip.isRoundTrip ? '<->' : '->'} ${trip.endLocationName || 'TBD'}\n`;
       text += `\n*Estimate Details*\n`;
       text += `Distance: ${formatDistance(distance)}\n`;
-      text += `Days: ${trip.numberOfDays}\n`;
+      text += `Days: ${displayDays}\n`;
       text += `Vehicle: ${trip.vehicleSnapshot.name}\n`;
       text += `Rate: ${formatCurrency(trip.vehicleSnapshot.ratePerKm)}/km\n`;
       text += `\n*Fare Breakdown*\n`;
@@ -265,7 +311,7 @@ export default function TripDetailScreen() {
       text += `\n*Total Fare: ${formatCurrency(fareBreakdown.grandTotal)}*\n`;
       if (totalAdvances > 0) {
         text += `\nAdvances Received: ${formatCurrency(totalAdvances)}\n`;
-        text += `*Balance Due: ${formatCurrency(balance)}*`;
+        text += `*${balanceLabel}: ${formatCurrency(balanceAmount)}*`;
       }
     }
     return text;
@@ -274,7 +320,7 @@ export default function TripDetailScreen() {
   const handleCopyToClipboard = async () => {
     const text = generateWhatsAppText();
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', 'Trip details copied to clipboard');
+    showAlert('Copied', 'Trip details copied to clipboard');
   };
 
   return (
@@ -323,7 +369,7 @@ export default function TripDetailScreen() {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Duration</Text>
-          <Text style={styles.detailValue}>{trip.numberOfDays} days</Text>
+          <Text style={styles.detailValue}>{displayDays} days</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Rate</Text>
@@ -415,7 +461,7 @@ export default function TripDetailScreen() {
           breakdown={trip.actualFareBreakdown}
           ratePerKm={trip.vehicleSnapshot.ratePerKm}
           bataPerDay={trip.bataPerDay}
-          numberOfDays={trip.numberOfDays}
+          numberOfDays={displayDays}
         />
       ) : (
         <Card title="Estimated Fare">
@@ -425,6 +471,32 @@ export default function TripDetailScreen() {
             bataPerDay={trip.bataPerDay}
             numberOfDays={trip.numberOfDays}
           />
+        </Card>
+      )}
+
+      {/* Payment Summary (completed/active trips with advances) */}
+      {(isCompleted || isActive) && totalAdvances > 0 && (
+        <Card title="Payment Summary">
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>
+              {isCompleted ? 'Total Fare' : 'Estimated Fare'}
+            </Text>
+            <Text style={styles.detailValue}>{formatCurrency(fareBreakdown.grandTotal)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Advances Received</Text>
+            <Text style={[styles.detailValue, styles.advanceHighlight]}>
+              {formatCurrency(totalAdvances)}
+            </Text>
+          </View>
+          <View style={[styles.detailRow, styles.paymentTotalRow]}>
+            <Text style={[styles.detailLabel, styles.paymentTotalLabel]}>
+              {balanceLabel}
+            </Text>
+            <Text style={[styles.detailValue, styles.paymentTotalValue]}>
+              {formatCurrency(balanceAmount)}
+            </Text>
+          </View>
         </Card>
       )}
 
@@ -517,18 +589,45 @@ export default function TripDetailScreen() {
       <Modal visible={modalType === 'confirm'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <Card title="Confirm Trip" style={styles.modalCard}>
-            <Input
-              label="Confirmed Start Date & Time"
-              value={confirmedStartTime}
-              onChangeText={setConfirmedStartTime}
-              placeholder="YYYY-MM-DD HH:MM"
-            />
-            <Input
-              label="Confirmed End Date & Time (optional)"
-              value={confirmedEndTime}
-              onChangeText={setConfirmedEndTime}
-              placeholder="YYYY-MM-DD HH:MM"
-            />
+            {confirmedStartTime && (
+              <DatePicker
+                label="Confirmed Start Date & Time"
+                value={confirmedStartTime}
+                onChange={setConfirmedStartTime}
+                mode="datetime"
+              />
+            )}
+
+            {useConfirmedEndTime ? (
+              <>
+                <DatePicker
+                  label="Confirmed End Date & Time (optional)"
+                  value={confirmedEndTime ?? confirmedStartTime ?? new Date()}
+                  onChange={setConfirmedEndTime}
+                  mode="datetime"
+                  minimumDate={confirmedStartTime ?? undefined}
+                />
+                <Button
+                  title="Clear End Time"
+                  variant="outline"
+                  onPress={() => {
+                    setUseConfirmedEndTime(false);
+                    setConfirmedEndTime(null);
+                  }}
+                  style={styles.inlineButton}
+                />
+              </>
+            ) : (
+              <Button
+                title="Add End Time (optional)"
+                variant="outline"
+                onPress={() => {
+                  setUseConfirmedEndTime(true);
+                  setConfirmedEndTime(confirmedStartTime ?? getDefaultConfirmedTime());
+                }}
+                style={styles.inlineButton}
+              />
+            )}
             <View style={styles.modalActions}>
               <Button
                 title="Cancel"
@@ -618,6 +717,11 @@ export default function TripDetailScreen() {
             <Text style={styles.modalHint}>
               Start odometer: {trip.odometerStart?.value.toLocaleString() || 0} km
             </Text>
+            {trip.actualStartTime && (
+              <Text style={styles.modalHint}>
+                Start time: {formatDateTime(trip.actualStartTime)}
+              </Text>
+            )}
             <Input
               label="End Odometer Reading (km)"
               value={odometerEnd}
@@ -788,6 +892,18 @@ const styles = StyleSheet.create({
     color: '#34C759',
     fontWeight: '600',
   },
+  paymentTotalRow: {
+    borderBottomWidth: 0,
+    marginTop: 4,
+  },
+  paymentTotalLabel: {
+    color: '#1C1C1E',
+    fontWeight: '600',
+  },
+  paymentTotalValue: {
+    color: '#1C1C1E',
+    fontWeight: '700',
+  },
   actions: {
     marginTop: 24,
     gap: 12,
@@ -818,6 +934,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 16,
+  },
+  inlineButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 12,
   },
   modalButton: {
     flex: 1,

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Vehicle } from '../../types';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, showAlert } from '../../utils';
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -11,7 +11,7 @@ interface VehicleCardProps {
 
 export function VehicleCard({ vehicle, onPress, onDelete }: VehicleCardProps) {
   const handleDelete = () => {
-    Alert.alert(
+    showAlert(
       'Delete Vehicle',
       `Are you sure you want to delete "${vehicle.name}"?`,
       [

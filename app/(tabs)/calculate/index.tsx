@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useVehicles } from '../../../src/hooks';
 import { VehicleSelector } from '../../../src/components/vehicles';
 import { Button, Input, Card } from '../../../src/components/ui';
 import { DEFAULT_BATA_PER_DAY } from '../../../src/constants';
 import { Vehicle } from '../../../src/types';
+import { showAlert } from '../../../src/utils/alert';
 
 export default function CalculateStartScreen() {
   const router = useRouter();
@@ -19,19 +20,19 @@ export default function CalculateStartScreen() {
 
   const handleCalculate = () => {
     if (!selectedVehicle) {
-      Alert.alert('Error', 'Please select a vehicle');
+      showAlert('Error', 'Please select a vehicle');
       return;
     }
 
     const km = parseFloat(actualKm);
     if (isNaN(km) || km <= 0) {
-      Alert.alert('Error', 'Please enter valid kilometers');
+      showAlert('Error', 'Please enter valid kilometers');
       return;
     }
 
     const days = parseInt(actualDays);
     if (isNaN(days) || days < 1) {
-      Alert.alert('Error', 'Please enter valid number of days');
+      showAlert('Error', 'Please enter valid number of days');
       return;
     }
 

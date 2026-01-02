@@ -11,15 +11,36 @@ interface TripCardProps {
 }
 
 export function TripCard({ trip, onPress, onLongPress }: TripCardProps) {
-  const displayTotal =
-    trip.status === 'completed' && trip.actualFareBreakdown
+  const totalAdvances = (trip.advancePayments || []).reduce((sum, p) => sum + p.amount, 0);
+  const isCompleted = trip.status === 'completed';
+  const isActive = trip.status === 'active';
+  const baseTotal =
+    isCompleted && trip.actualFareBreakdown
       ? trip.actualFareBreakdown.grandTotal
       : trip.estimatedFareBreakdown.grandTotal;
+  const showBalance = (isCompleted || isActive) && totalAdvances > 0;
+  const balanceDue = baseTotal - totalAdvances;
+  const displayTotal = showBalance ? Math.abs(balanceDue) : baseTotal;
+  const totalLabel = showBalance
+    ? balanceDue < 0
+      ? isCompleted
+        ? 'Refund Due'
+        : 'Est. Refund Due'
+      : isCompleted
+        ? 'Balance Due'
+        : 'Estimated Balance Due'
+    : isCompleted
+      ? 'Final Fare'
+      : 'Estimated';
 
   const displayDistance =
-    trip.status === 'completed' && trip.actualDistanceKm
+    isCompleted && trip.actualDistanceKm
       ? trip.actualDistanceKm
       : trip.estimatedDistanceKm;
+  const displayDays =
+    isCompleted && trip.actualDays
+      ? trip.actualDays
+      : trip.numberOfDays;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -78,14 +99,12 @@ export function TripCard({ trip, onPress, onLongPress }: TripCardProps) {
         </View>
         <View style={styles.detailItem}>
           <Text style={styles.detailLabel}>Days</Text>
-          <Text style={styles.detailValue}>{trip.numberOfDays}</Text>
+          <Text style={styles.detailValue}>{displayDays}</Text>
         </View>
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.totalLabel}>
-          {trip.status === 'completed' ? 'Final Fare' : 'Estimated'}
-        </Text>
+        <Text style={styles.totalLabel}>{totalLabel}</Text>
         <Text style={styles.totalValue}>{formatCurrency(displayTotal)}</Text>
       </View>
     </TouchableOpacity>

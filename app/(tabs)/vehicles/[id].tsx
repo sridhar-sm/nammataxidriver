@@ -1,10 +1,11 @@
 import React, { useState, useLayoutEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useVehicles } from '../../../src/hooks';
 import { VehicleForm } from '../../../src/components/vehicles';
 import { LoadingSpinner } from '../../../src/components/ui';
 import { VehicleFormData } from '../../../src/types';
+import { showAlert } from '../../../src/utils/alert';
 
 export default function VehicleEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,7 +28,7 @@ export default function VehicleEditScreen() {
   }
 
   if (!isNew && !vehicle) {
-    Alert.alert('Error', 'Vehicle not found', [
+    showAlert('Error', 'Vehicle not found', [
       { text: 'OK', onPress: () => router.back() },
     ]);
     return null;
@@ -54,7 +55,7 @@ export default function VehicleEditScreen() {
       }
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save vehicle. Please try again.');
+      showAlert('Error', 'Failed to save vehicle. Please try again.');
     } finally {
       setIsSaving(false);
     }

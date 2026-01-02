@@ -63,6 +63,7 @@ export interface Trip {
 
   // Actual values (filled during/after trip)
   actualDistanceKm?: number;
+  actualDays?: number;
   odometerStart?: OdometerReading;
   odometerEnd?: OdometerReading;
   tollEntries: TollEntry[];

@@ -15,6 +15,7 @@ import { Route } from '../types/location';
 import { FareBreakdown } from '../types/fare';
 import * as storage from '../services/storage';
 import { calculateFare } from '../utils/fareCalculator';
+import { calculateCalendarDaysSpanned } from '../utils/date';
 
 export function useTrips() {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -214,13 +215,16 @@ export function useTrips() {
     const odometerStart = trip.odometerStart?.value || 0;
     const actualDistanceKm = data.odometerEnd - odometerStart;
     const totalTolls = trip.tollEntries.reduce((sum, t) => sum + t.amount, 0);
+    const actualDays =
+      calculateCalendarDaysSpanned(trip.actualStartTime, data.actualEndTime) ??
+      trip.numberOfDays;
 
     const actualFareBreakdown = calculateFare({
       vehicleId: trip.vehicleId,
       ratePerKm: trip.vehicleSnapshot.ratePerKm,
       minKmPerDay: trip.vehicleSnapshot.minKmPerDay,
       totalDistanceKm: actualDistanceKm,
-      numberOfDays: trip.numberOfDays,
+      numberOfDays: actualDays,
       bataPerDay: trip.bataPerDay,
       estimatedTolls: totalTolls,
     });
@@ -235,6 +239,7 @@ export function useTrips() {
         type: 'end',
       },
       actualDistanceKm,
+      actualDays,
       actualFareBreakdown,
       updatedAt: new Date().toISOString(),
     };
