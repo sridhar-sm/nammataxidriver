@@ -1,6 +1,7 @@
 import React, { useState, useLayoutEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useTrips } from '../../../src/hooks';
 import {
@@ -13,9 +14,8 @@ import {
   TripPaymentSummary,
   ConfirmTripModal,
   StartTripModal,
-  AddTollModal,
+  AddEntryModal,
   CompleteTripModal,
-  AddAdvanceModal,
   EditEstimateModal,
 } from '../../../src/components/trips';
 import { FareBreakdown } from '../../../src/components/fare';
@@ -28,8 +28,10 @@ import {
   calculateCalendarDaysSpanned,
 } from '../../../src/utils';
 import { colors } from '../../../src/constants/colors';
+import { spacing, borderRadius, fontSize, fontWeight, shadows, layout } from '../../../src/constants/spacing';
 
-type ModalType = 'confirm' | 'start' | 'toll' | 'complete' | 'advance' | 'edit' | null;
+type ModalType = 'confirm' | 'start' | 'entry' | 'complete' | 'edit' | null;
+type DetailTab = 'route' | 'details' | 'payment';
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -50,6 +52,7 @@ export default function TripDetailScreen() {
 
   const [modalType, setModalType] = useState<ModalType>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<DetailTab>('route');
 
   const trip = getTrip(id);
 
@@ -132,19 +135,6 @@ export default function TripDetailScreen() {
     }
   };
 
-  const handleComplete = async (data: { odometerEnd: number; actualEndTime: string }) => {
-    setIsSubmitting(true);
-    try {
-      await completeTrip(id, data);
-      setModalType(null);
-      refreshTrips();
-    } catch {
-      showAlert('Error', 'Failed to complete trip');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleAddAdvance = async (amount: number, reason: string) => {
     setIsSubmitting(true);
     try {
@@ -153,6 +143,19 @@ export default function TripDetailScreen() {
       refreshTrips();
     } catch {
       showAlert('Error', 'Failed to add advance payment');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleComplete = async (data: { odometerEnd: number; actualEndTime: string }) => {
+    setIsSubmitting(true);
+    try {
+      await completeTrip(id, data);
+      setModalType(null);
+      refreshTrips();
+    } catch {
+      showAlert('Error', 'Failed to complete trip');
     } finally {
       setIsSubmitting(false);
     }
@@ -256,94 +259,156 @@ export default function TripDetailScreen() {
     showAlert('Copied', 'Trip details copied to clipboard');
   };
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'route':
+        return (
+          <>
+            <TripRouteCard
+              startLocationName={trip.startLocationName}
+              endLocationName={trip.endLocationName}
+              isRoundTrip={trip.isRoundTrip}
+              route={trip.route}
+            />
+            <TripDetailsCard
+              vehicleSnapshot={trip.vehicleSnapshot}
+              proposedStartDate={trip.proposedStartDate}
+              numberOfDays={displayDays}
+              bataPerDay={trip.bataPerDay}
+            />
+            {(trip.status === 'active' || trip.status === 'completed') && (
+              <TripOdometerCard
+                odometerStart={trip.odometerStart}
+                odometerEnd={trip.odometerEnd}
+                actualDistanceKm={trip.actualDistanceKm}
+              />
+            )}
+          </>
+        );
+      case 'details':
+        return (
+          <>
+            <TripTollsCard tollEntries={trip.tollEntries} />
+            <TripAdvancesCard advancePayments={trip.advancePayments || []} />
+            {trip.notes && (
+              <Card title="Notes">
+                <Text style={styles.notesText}>{trip.notes}</Text>
+              </Card>
+            )}
+          </>
+        );
+      case 'payment':
+        return (
+          <>
+            {trip.status === 'completed' && trip.actualFareBreakdown ? (
+              <FareBreakdown
+                breakdown={trip.actualFareBreakdown}
+                ratePerKm={trip.vehicleSnapshot.ratePerKm}
+                bataPerDay={trip.bataPerDay}
+                numberOfDays={displayDays}
+              />
+            ) : (
+              <Card title="Estimated Fare">
+                <FareBreakdown
+                  breakdown={trip.estimatedFareBreakdown}
+                  ratePerKm={trip.vehicleSnapshot.ratePerKm}
+                  bataPerDay={trip.bataPerDay}
+                  numberOfDays={trip.numberOfDays}
+                />
+              </Card>
+            )}
+            {(isCompleted || isActive) && (
+              <TripPaymentSummary
+                fareBreakdown={fareBreakdown}
+                totalAdvances={totalAdvances}
+                isCompleted={isCompleted}
+              />
+            )}
+          </>
+        );
+    }
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TripDetailHeader
-        status={trip.status}
-        customerName={trip.customerName}
-        customerPhone={trip.customerPhone}
-        createdAt={trip.createdAt}
-      />
-
-      <TripRouteCard
-        startLocationName={trip.startLocationName}
-        endLocationName={trip.endLocationName}
-        isRoundTrip={trip.isRoundTrip}
-        route={trip.route}
-      />
-
-      <TripDetailsCard
-        vehicleSnapshot={trip.vehicleSnapshot}
-        proposedStartDate={trip.proposedStartDate}
-        numberOfDays={displayDays}
-        bataPerDay={trip.bataPerDay}
-      />
-
-      {(trip.status === 'active' || trip.status === 'completed') && (
-        <TripOdometerCard
-          odometerStart={trip.odometerStart}
-          odometerEnd={trip.odometerEnd}
-          actualDistanceKm={trip.actualDistanceKm}
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <TripDetailHeader
+          status={trip.status}
+          customerName={trip.customerName}
+          customerPhone={trip.customerPhone}
+          createdAt={trip.createdAt}
         />
-      )}
 
-      <TripTollsCard tollEntries={trip.tollEntries} />
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'route' && styles.tabActive]}
+            onPress={() => setActiveTab('route')}
+          >
+            <Ionicons
+              name="map-outline"
+              size={18}
+              color={activeTab === 'route' ? colors.primary : colors.text.secondary}
+            />
+            <Text style={[styles.tabText, activeTab === 'route' && styles.tabTextActive]}>
+              Route
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'details' && styles.tabActive]}
+            onPress={() => setActiveTab('details')}
+          >
+            <Ionicons
+              name="list-outline"
+              size={18}
+              color={activeTab === 'details' ? colors.primary : colors.text.secondary}
+            />
+            <Text style={[styles.tabText, activeTab === 'details' && styles.tabTextActive]}>
+              Details
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'payment' && styles.tabActive]}
+            onPress={() => setActiveTab('payment')}
+          >
+            <Ionicons
+              name="wallet-outline"
+              size={18}
+              color={activeTab === 'payment' ? colors.primary : colors.text.secondary}
+            />
+            <Text style={[styles.tabText, activeTab === 'payment' && styles.tabTextActive]}>
+              Payment
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      <TripAdvancesCard advancePayments={trip.advancePayments || []} />
+        {/* Tab Content */}
+        <View style={styles.tabContent}>{renderTabContent()}</View>
+      </ScrollView>
 
-      {trip.status === 'completed' && trip.actualFareBreakdown ? (
-        <FareBreakdown
-          breakdown={trip.actualFareBreakdown}
-          ratePerKm={trip.vehicleSnapshot.ratePerKm}
-          bataPerDay={trip.bataPerDay}
-          numberOfDays={displayDays}
-        />
-      ) : (
-        <Card title="Estimated Fare">
-          <FareBreakdown
-            breakdown={trip.estimatedFareBreakdown}
-            ratePerKm={trip.vehicleSnapshot.ratePerKm}
-            bataPerDay={trip.bataPerDay}
-            numberOfDays={trip.numberOfDays}
-          />
-        </Card>
-      )}
-
-      {(isCompleted || isActive) && (
-        <TripPaymentSummary
-          fareBreakdown={fareBreakdown}
-          totalAdvances={totalAdvances}
-          isCompleted={isCompleted}
-        />
-      )}
-
-      {/* Actions based on status */}
-      <View style={styles.actions}>
+      {/* Sticky Action Bar */}
+      <View style={styles.actionBar}>
         {trip.status === 'proposed' && (
           <>
             <Button
               title="Confirm Trip"
               onPress={() => setModalType('confirm')}
-              style={styles.actionButton}
+              style={styles.primaryAction}
             />
-            <Button
-              title="Edit Estimate"
-              onPress={() => setModalType('edit')}
-              variant="secondary"
-              style={styles.actionButton}
-            />
-            <Button
-              title="Copy for WhatsApp"
-              onPress={handleCopyToClipboard}
-              variant="secondary"
-              style={styles.actionButton}
-            />
-            <Button
-              title="Cancel"
-              onPress={handleCancel}
-              variant="outline"
-              style={styles.actionButton}
-            />
+            <View style={styles.secondaryActions}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setModalType('edit')}
+              >
+                <Ionicons name="pencil" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={handleCopyToClipboard}>
+                <Ionicons name="share-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={handleCancel}>
+                <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
@@ -352,58 +417,50 @@ export default function TripDetailScreen() {
             <Button
               title="Start Trip"
               onPress={() => setModalType('start')}
-              style={styles.actionButton}
+              style={styles.primaryAction}
             />
-            <Button
-              title="Copy for WhatsApp"
-              onPress={handleCopyToClipboard}
-              variant="secondary"
-              style={styles.actionButton}
-            />
-            <Button
-              title="Cancel"
-              onPress={handleCancel}
-              variant="outline"
-              style={styles.actionButton}
-            />
+            <View style={styles.secondaryActions}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleCopyToClipboard}>
+                <Ionicons name="share-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={handleCancel}>
+                <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
         {trip.status === 'active' && (
           <>
             <Button
-              title="Add Toll"
-              onPress={() => setModalType('toll')}
-              variant="secondary"
-              style={styles.actionButton}
-            />
-            <Button
-              title="Add Advance Payment"
-              onPress={() => setModalType('advance')}
-              variant="secondary"
-              style={styles.actionButton}
-            />
-            <Button
               title="Complete Trip"
               onPress={() => setModalType('complete')}
-              style={styles.actionButton}
+              style={styles.primaryAction}
             />
+            <TouchableOpacity
+              style={styles.addEntryButton}
+              onPress={() => setModalType('entry')}
+            >
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
+              <Text style={styles.addEntryText}>Add Entry</Text>
+            </TouchableOpacity>
           </>
         )}
 
         {trip.status === 'completed' && (
           <>
             <Button
-              title="Copy for WhatsApp"
+              title="Share Summary"
               onPress={handleCopyToClipboard}
-              style={styles.actionButton}
+              style={styles.primaryAction}
             />
-            <Button
-              title="Back to Trips"
+            <TouchableOpacity
+              style={styles.backButton}
               onPress={() => router.back()}
-              variant="outline"
-              style={styles.actionButton}
-            />
+            >
+              <Ionicons name="arrow-back" size={20} color={colors.text.secondary} />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
           </>
         )}
       </View>
@@ -424,10 +481,11 @@ export default function TripDetailScreen() {
         isSubmitting={isSubmitting}
       />
 
-      <AddTollModal
-        visible={modalType === 'toll'}
+      <AddEntryModal
+        visible={modalType === 'entry'}
         onClose={() => setModalType(null)}
-        onAdd={handleAddToll}
+        onAddToll={handleAddToll}
+        onAddAdvance={handleAddAdvance}
         isSubmitting={isSubmitting}
       />
 
@@ -440,13 +498,6 @@ export default function TripDetailScreen() {
         isSubmitting={isSubmitting}
       />
 
-      <AddAdvanceModal
-        visible={modalType === 'advance'}
-        onClose={() => setModalType(null)}
-        onAdd={handleAddAdvance}
-        isSubmitting={isSubmitting}
-      />
-
       <EditEstimateModal
         visible={modalType === 'edit'}
         onClose={() => setModalType(null)}
@@ -454,7 +505,7 @@ export default function TripDetailScreen() {
         trip={trip}
         isSubmitting={isSubmitting}
       />
-    </ScrollView>
+    </View>
   );
 }
 
@@ -463,19 +514,112 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
+  scrollView: {
+    flex: 1,
+  },
   content: {
-    padding: 16,
+    padding: layout.screenPadding,
+    paddingBottom: 120,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: fontSize.lg,
     color: colors.danger,
     textAlign: 'center',
   },
-  actions: {
-    marginTop: 24,
-    gap: 12,
+  notesText: {
+    fontSize: fontSize.md,
+    color: colors.text.secondary,
+    lineHeight: 22,
   },
-  actionButton: {
-    width: '100%',
+  // Tab Navigation
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.xs,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.sm,
+    gap: spacing.xs,
+  },
+  tabActive: {
+    backgroundColor: colors.primary + '15',
+  },
+  tabText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
+  },
+  tabTextActive: {
+    color: colors.primary,
+  },
+  tabContent: {
+    gap: spacing.md,
+  },
+  // Sticky Action Bar
+  actionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: layout.screenPadding,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    ...shadows.lg,
+  },
+  primaryAction: {
+    flex: 1,
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addEntryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary + '15',
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+  },
+  addEntryText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: colors.primary,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  backButtonText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
   },
 });

@@ -7,31 +7,39 @@ import {
   TextInputProps,
   ViewStyle,
 } from 'react-native';
+import { colors } from '../../constants/colors';
+import { spacing, borderRadius, fontSize, fontWeight } from '../../constants/spacing';
 
-interface InputProps extends TextInputProps {
+export interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   containerStyle?: ViewStyle;
+  prefix?: string;
 }
 
 export function Input({
   label,
   error,
   containerStyle,
+  prefix,
   ...props
 }: InputProps) {
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <TextInput
-        style={[
-          styles.input,
-          error && styles.inputError,
-          props.multiline && styles.multiline,
-        ]}
-        placeholderTextColor="#8E8E93"
-        {...props}
-      />
+      <View style={styles.inputWrapper}>
+        {prefix && <Text style={styles.prefix}>{prefix}</Text>}
+        <TextInput
+          style={[
+            styles.input,
+            prefix && styles.inputWithPrefix,
+            error && styles.inputError,
+            props.multiline && styles.multiline,
+          ]}
+          placeholderTextColor={colors.text.secondary}
+          {...props}
+        />
+      </View>
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
@@ -39,34 +47,47 @@ export function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#3C3C43',
-    marginBottom: 6,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
-  input: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1C1C1E',
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: 'transparent',
   },
+  prefix: {
+    fontSize: fontSize.lg,
+    color: colors.text.secondary,
+    paddingLeft: spacing.md,
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    fontSize: fontSize.lg,
+    color: colors.text.primary,
+  },
+  inputWithPrefix: {
+    paddingLeft: spacing.xs,
+  },
   inputError: {
-    borderColor: '#FF3B30',
+    borderColor: colors.danger,
   },
   multiline: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   error: {
-    fontSize: 12,
-    color: '#FF3B30',
-    marginTop: 4,
+    fontSize: fontSize.xs,
+    color: colors.danger,
+    marginTop: spacing.xs,
   },
 });

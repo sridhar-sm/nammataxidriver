@@ -61,6 +61,7 @@ export const FareBreakdownSchema = z.object({
   totalBata: z.number(),
   totalTolls: z.number(),
   subtotal: z.number(),
+  discount: z.number().nonnegative().default(0),
   grandTotal: z.number(),
 });
 
@@ -108,6 +109,9 @@ export const TripSchema = z.object({
   estimatedDistanceKm: z.number().nonnegative(),
   estimatedTolls: z.number().nonnegative(),
   estimatedFareBreakdown: FareBreakdownSchema,
+  discount: z.number().nonnegative().default(0),
+  ratePerKmOverride: z.number().optional(),
+  minKmPerDayOverride: z.number().optional(),
   actualDistanceKm: z.number().optional(),
   actualDays: z.number().optional(),
   odometerStart: OdometerReadingSchema.optional(),

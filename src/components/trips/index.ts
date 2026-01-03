@@ -1,4 +1,5 @@
 export { TripCard } from './TripCard';
+export { SwipeableTripCard } from './SwipeableTripCard';
 export { TripStatusBadge } from './TripStatusBadge';
 export { TripDetailHeader } from './TripDetailHeader';
 export { TripRouteCard } from './TripRouteCard';

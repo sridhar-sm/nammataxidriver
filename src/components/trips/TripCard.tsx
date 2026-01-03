@@ -1,8 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Trip } from '../../types';
 import { formatCurrency, formatDistance } from '../../utils/formatters';
 import { TripStatusBadge } from './TripStatusBadge';
+import { colors } from '../../constants/colors';
+import { spacing, borderRadius, fontSize, fontWeight, shadows } from '../../constants/spacing';
 
 interface TripCardProps {
   trip: Trip;
@@ -69,18 +72,20 @@ export function TripCard({ trip, onPress, onLongPress }: TripCardProps) {
 
       <View style={styles.route}>
         <View style={styles.routePoint}>
-          <Text style={styles.routeIcon}>📍</Text>
+          <Ionicons name="location" size={14} color={colors.primary} />
           <Text style={styles.routeText} numberOfLines={1}>
             {trip.startLocationName || 'Start location'}
           </Text>
         </View>
         <View style={styles.routeArrow}>
-          <Text style={styles.arrowText}>
-            {trip.isRoundTrip ? '↔️' : '→'}
-          </Text>
+          <Ionicons
+            name={trip.isRoundTrip ? 'swap-horizontal' : 'arrow-forward'}
+            size={16}
+            color={colors.text.secondary}
+          />
         </View>
         <View style={styles.routePoint}>
-          <Text style={styles.routeIcon}>🏁</Text>
+          <Ionicons name="flag" size={14} color={colors.success} />
           <Text style={styles.routeText} numberOfLines={1}>
             {trip.endLocationName || 'End location'}
             {trip.isRoundTrip && ' (Round trip)'}
@@ -90,16 +95,16 @@ export function TripCard({ trip, onPress, onLongPress }: TripCardProps) {
 
       <View style={styles.details}>
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Date</Text>
+          <Ionicons name="calendar-outline" size={14} color={colors.text.secondary} />
           <Text style={styles.detailValue}>{formatDate(trip.proposedStartDate)}</Text>
         </View>
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Distance</Text>
+          <Ionicons name="speedometer-outline" size={14} color={colors.text.secondary} />
           <Text style={styles.detailValue}>{formatDistance(displayDistance)}</Text>
         </View>
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Days</Text>
-          <Text style={styles.detailValue}>{displayDays}</Text>
+          <Ionicons name="time-outline" size={14} color={colors.text.secondary} />
+          <Text style={styles.detailValue}>{displayDays} day{displayDays !== 1 ? 's' : ''}</Text>
         </View>
       </View>
 
@@ -113,97 +118,84 @@ export function TripCard({ trip, onPress, onLongPress }: TripCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   headerLeft: {
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   customerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
   },
   vehicleName: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
   },
   route: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
   },
   routePoint: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  routeIcon: {
-    fontSize: 14,
-    marginRight: 6,
+    gap: spacing.xs,
   },
   routeText: {
-    fontSize: 13,
-    color: '#3C3C43',
+    fontSize: fontSize.sm,
+    color: colors.text.primary,
     flex: 1,
   },
   routeArrow: {
-    paddingHorizontal: 8,
-  },
-  arrowText: {
-    fontSize: 16,
+    paddingHorizontal: spacing.sm,
   },
   details: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   detailItem: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginBottom: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1C1C1E',
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.text.primary,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-    paddingTop: 12,
+    borderTopColor: colors.border.primary,
+    paddingTop: spacing.md,
   },
   totalLabel: {
-    fontSize: 14,
-    color: '#8E8E93',
+    fontSize: fontSize.md,
+    color: colors.text.secondary,
   },
   totalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#007AFF',
+    fontSize: fontSize.xxl,
+    fontWeight: fontWeight.bold,
+    color: colors.primary,
   },
 });

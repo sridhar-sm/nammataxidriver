@@ -1,34 +1,54 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { useTrips } from '../../../src/hooks';
-import { TripCard } from '../../../src/components/trips';
+import { SwipeableTripCard, ConfirmTripModal, StartTripModal } from '../../../src/components/trips';
 import { LoadingSpinner } from '../../../src/components/ui';
 import { TripStatus, Trip } from '../../../src/types';
-import { showAlert, showActionSheet } from '../../../src/utils/alert';
+import { showAlert } from '../../../src/utils/alert';
+import { colors } from '../../../src/constants/colors';
+import { spacing, borderRadius, fontSize, fontWeight, shadows, layout } from '../../../src/constants/spacing';
 
 type TabFilter = 'all' | TripStatus;
 
-const TABS: { key: TabFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
-  { key: 'proposed', label: 'Proposed' },
-  { key: 'confirmed', label: 'Confirmed' },
-  { key: 'completed', label: 'Completed' },
+const TABS: { key: TabFilter; label: string; icon: string }[] = [
+  { key: 'all', label: 'All', icon: 'apps' },
+  { key: 'active', label: 'Active', icon: 'car' },
+  { key: 'proposed', label: 'Proposed', icon: 'document-text' },
+  { key: 'confirmed', label: 'Confirmed', icon: 'checkmark-circle' },
+  { key: 'completed', label: 'Completed', icon: 'checkmark-done' },
 ];
+
+interface TripSection {
+  title: string;
+  data: Trip[];
+}
 
 export default function TripsListScreen() {
   const router = useRouter();
-  const { trips, isLoading, refreshTrips, activeTrips, cancelTrip, deleteTrip } = useTrips();
+  const {
+    trips,
+    isLoading,
+    refreshTrips,
+    activeTrips,
+    cancelTrip,
+    confirmTrip,
+    startTrip,
+  } = useTrips();
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [modalType, setModalType] = useState<'confirm' | 'start' | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,71 +56,105 @@ export default function TripsListScreen() {
     }, [refreshTrips])
   );
 
-  const filteredTrips =
-    activeTab === 'all'
+  const filteredTrips = useMemo(() => {
+    return activeTab === 'all'
       ? trips.filter((t) => t.status !== 'cancelled')
       : trips.filter((t) => t.status === activeTab);
+  }, [trips, activeTab]);
 
-  const handleTripLongPress = (trip: Trip) => {
-    const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [];
+  // Group trips by date
+  const sections = useMemo((): TripSection[] => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
 
-    if (trip.status === 'proposed' || trip.status === 'confirmed') {
-      options.push({
-        text: 'Cancel Trip',
+    const todayTrips: Trip[] = [];
+    const yesterdayTrips: Trip[] = [];
+    const thisWeekTrips: Trip[] = [];
+    const earlierTrips: Trip[] = [];
+
+    filteredTrips.forEach((trip) => {
+      const tripDate = new Date(trip.proposedStartDate);
+      if (tripDate >= startOfToday) {
+        todayTrips.push(trip);
+      } else if (tripDate >= startOfYesterday) {
+        yesterdayTrips.push(trip);
+      } else if (tripDate >= startOfWeek) {
+        thisWeekTrips.push(trip);
+      } else {
+        earlierTrips.push(trip);
+      }
+    });
+
+    const result: TripSection[] = [];
+    if (todayTrips.length > 0) result.push({ title: 'Today', data: todayTrips });
+    if (yesterdayTrips.length > 0) result.push({ title: 'Yesterday', data: yesterdayTrips });
+    if (thisWeekTrips.length > 0) result.push({ title: 'This Week', data: thisWeekTrips });
+    if (earlierTrips.length > 0) result.push({ title: 'Earlier', data: earlierTrips });
+
+    return result;
+  }, [filteredTrips]);
+
+  const handleCancel = (trip: Trip) => {
+    showAlert('Cancel Trip', `Are you sure you want to cancel the trip for ${trip.customerName}?`, [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, Cancel',
         style: 'destructive',
-        onPress: () => {
-          showAlert(
-            'Cancel Trip',
-            `Are you sure you want to cancel the trip for ${trip.customerName}?`,
-            [
-              { text: 'No', style: 'cancel' },
-              {
-                text: 'Yes, Cancel',
-                style: 'destructive',
-                onPress: async () => {
-                  try {
-                    await cancelTrip(trip.id);
-                  } catch (err) {
-                    showAlert('Error', 'Failed to cancel trip');
-                  }
-                },
-              },
-            ]
-          );
+        onPress: async () => {
+          try {
+            await cancelTrip(trip.id);
+          } catch {
+            showAlert('Error', 'Failed to cancel trip');
+          }
         },
-      });
-    }
+      },
+    ]);
+  };
 
-    if (trip.status === 'proposed' || trip.status === 'cancelled') {
-      options.push({
-        text: 'Delete Trip',
-        style: 'destructive',
-        onPress: () => {
-          showAlert(
-            'Delete Trip',
-            `Are you sure you want to permanently delete this trip for ${trip.customerName}?`,
-            [
-              { text: 'No', style: 'cancel' },
-              {
-                text: 'Yes, Delete',
-                style: 'destructive',
-                onPress: async () => {
-                  try {
-                    await deleteTrip(trip.id);
-                  } catch (err) {
-                    showAlert('Error', 'Failed to delete trip');
-                  }
-                },
-              },
-            ]
-          );
-        },
-      });
-    }
+  const handleConfirmTrip = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setModalType('confirm');
+  };
 
-    if (options.length > 0) {
-      options.push({ text: 'Close', style: 'cancel' });
-      showActionSheet(trip.customerName, 'Select an action', options);
+  const handleStartTrip = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setModalType('start');
+  };
+
+  const handleConfirmSubmit = async (data: {
+    confirmedStartTime: string;
+    confirmedEndTime?: string;
+  }) => {
+    if (!selectedTrip) return;
+    setIsSubmitting(true);
+    try {
+      await confirmTrip(selectedTrip.id, data);
+      setModalType(null);
+      setSelectedTrip(null);
+      refreshTrips();
+    } catch {
+      showAlert('Error', 'Failed to confirm trip');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartSubmit = async (data: { odometerStart: number; actualStartTime: string }) => {
+    if (!selectedTrip) return;
+    setIsSubmitting(true);
+    try {
+      await startTrip(selectedTrip.id, data);
+      setModalType(null);
+      setSelectedTrip(null);
+      refreshTrips();
+    } catch {
+      showAlert('Error', 'Failed to start trip');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -109,7 +163,7 @@ export default function TripsListScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       {/* Active Trip Banner */}
       {activeTrips.length > 0 && (
         <TouchableOpacity
@@ -117,154 +171,242 @@ export default function TripsListScreen() {
           onPress={() => router.push(`/(tabs)/trips/${activeTrips[0].id}`)}
         >
           <View style={styles.activeBannerContent}>
-            <Text style={styles.activeBannerIcon}>🚗</Text>
+            <View style={styles.activeBannerIconContainer}>
+              <Ionicons name="car" size={20} color={colors.text.inverse} />
+            </View>
             <View style={styles.activeBannerText}>
               <Text style={styles.activeBannerTitle}>Trip in Progress</Text>
-              <Text style={styles.activeBannerSubtitle}>
+              <Text style={styles.activeBannerSubtitle} numberOfLines={1}>
                 {activeTrips[0].customerName} - {activeTrips[0].startLocationName}
               </Text>
             </View>
-            <Text style={styles.activeBannerArrow}>→</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.inverse} />
           </View>
         </TouchableOpacity>
       )}
 
-      {/* Filter Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsContainer}
-        contentContainerStyle={styles.tabsContent}
-      >
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text
-              style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Sticky Filter Tabs */}
+      <View style={styles.tabsWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabsContainer}
+          contentContainerStyle={styles.tabsContent}
+        >
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <Ionicons
+                  name={tab.icon as any}
+                  size={16}
+                  color={isActive ? colors.text.inverse : colors.text.secondary}
+                  style={styles.tabIcon}
+                />
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-      {/* Trips List */}
-      {filteredTrips.length === 0 ? (
+      {/* Trips List with Sections */}
+      {sections.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📋</Text>
+          <Ionicons name="document-text-outline" size={64} color={colors.text.tertiary} />
           <Text style={styles.emptyTitle}>No Trips</Text>
           <Text style={styles.emptyText}>
             {activeTab === 'all'
               ? 'Create your first trip estimate'
               : `No ${activeTab} trips`}
           </Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => router.push('/(tabs)/estimate')}
+          >
+            <Ionicons name="add-circle" size={20} color={colors.text.inverse} />
+            <Text style={styles.emptyButtonText}>New Trip</Text>
+          </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={filteredTrips}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+            </View>
+          )}
           renderItem={({ item }) => (
-            <TripCard
+            <SwipeableTripCard
               trip={item}
               onPress={() => router.push(`/(tabs)/trips/${item.id}`)}
-              onLongPress={() => handleTripLongPress(item)}
+              onCancel={() => handleCancel(item)}
+              onConfirm={() => handleConfirmTrip(item)}
+              onStart={() => handleStartTrip(item)}
             />
           )}
         />
       )}
-    </View>
+
+      {/* Modals */}
+      <ConfirmTripModal
+        visible={modalType === 'confirm'}
+        onClose={() => {
+          setModalType(null);
+          setSelectedTrip(null);
+        }}
+        onConfirm={handleConfirmSubmit}
+        proposedStartDate={selectedTrip?.proposedStartDate || ''}
+        isSubmitting={isSubmitting}
+      />
+
+      <StartTripModal
+        visible={modalType === 'start'}
+        onClose={() => {
+          setModalType(null);
+          setSelectedTrip(null);
+        }}
+        onStart={handleStartSubmit}
+        isSubmitting={isSubmitting}
+      />
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.background.primary,
   },
+  // Active Banner
   activeBanner: {
-    backgroundColor: '#34C759',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
+    backgroundColor: colors.success,
+    marginHorizontal: layout.screenPadding,
+    marginTop: layout.screenPadding,
+    borderRadius: borderRadius.md,
     overflow: 'hidden',
   },
   activeBannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: spacing.md,
   },
-  activeBannerIcon: {
-    fontSize: 28,
-    marginRight: 12,
+  activeBannerIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
   },
   activeBannerText: {
     flex: 1,
   },
   activeBannerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.inverse,
   },
   activeBannerSubtitle: {
-    fontSize: 13,
+    fontSize: fontSize.sm,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
-  activeBannerArrow: {
-    fontSize: 24,
-    color: '#FFFFFF',
+  // Tabs
+  tabsWrapper: {
+    backgroundColor: colors.background.primary,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    ...shadows.sm,
   },
   tabsContainer: {
     flexGrow: 0,
-    marginTop: 16,
   },
   tabsContent: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: layout.screenPadding,
+    gap: spacing.sm,
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    ...shadows.sm,
   },
   tabActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
+  },
+  tabIcon: {
+    marginRight: spacing.xs,
   },
   tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#3C3C43',
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
   },
+  // Section List
   list: {
-    padding: 16,
+    padding: layout.screenPadding,
   },
+  sectionHeader: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  sectionTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Empty State
   empty: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    padding: spacing.xl,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 8,
+    fontSize: fontSize.xxl,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#8E8E93',
+    fontSize: fontSize.lg,
+    color: colors.text.secondary,
     textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  emptyButtonText: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.inverse,
+    marginLeft: spacing.sm,
   },
 });
