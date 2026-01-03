@@ -1,5 +1,7 @@
 import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { colors } from '../../constants/colors';
+import { spacing, borderRadius, fontSize, fontWeight, shadows, layout } from '../../constants/spacing';
 
 interface CardProps {
   children: ReactNode;
@@ -18,19 +20,15 @@ export function Card({ children, title, style }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
+    padding: layout.cardPadding,
+    ...shadows.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 12,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
   },
 });
